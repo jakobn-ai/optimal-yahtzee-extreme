@@ -1,0 +1,8 @@
+[package]
+name = "optimal-yahtzee-extreme"
+version = "0.1.0"
+authors = ["Jakob Naucke <jakob.naucke@web.de>"]
+edition = "2018"
+readme = "README.md"
+repository = "https://github.com/jakobn-ai/optimal-yahtzee-extreme"
+license = "GPL-3.0-or-later"
