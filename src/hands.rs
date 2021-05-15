@@ -1,14 +1,11 @@
-// to quiet warnings, TODO use
-#![allow(dead_code)]
-
 /// Number on a die (1-6 for d6)
-type Pip = u8;
+pub type Pip = u8;
 /// Dice rolled (5 for regular Yahtzee), assumed to be sorted
-type Hand = Vec<Pip>;
-/// Score on the card, both individual positions and end results
-type Score = i16;
+pub type Hand = Vec<Pip>;
+/// Score on the card, both individual hands and end results
+pub type Score = i16;
 /// Absolute frequency of a pip in a hand
-type Frequency = u8;
+pub type Frequency = u8;
 
 /// Upper section fields
 /// # Arguments
@@ -18,7 +15,8 @@ pub fn generic_upper_section(field: Pip, hand: Hand) -> Score {
     hand.iter()
         .skip_while(|&&pip| pip != field)
         .take_while(|&&pip| pip == field)
-        .count() as Score * field as Score
+        .count() as Score
+        * field as Score
 }
 
 /// Calculate sum of hand
@@ -31,7 +29,7 @@ pub fn total(hand: Hand) -> Score {
 /// # Arguments
 /// * `hand` - sorted
 /// # Returns
-/// Vector of frequencies, sorted, without pips (unnecessary in Yahtzee)
+/// Vector of frequencies, sorted, without pips
 fn identical(hand: &[Pip]) -> Vec<Frequency> {
     let mut groups = Vec::new();
     let mut iter = hand.iter().peekable();
@@ -86,11 +84,16 @@ pub fn generic_straight(length: Frequency, score: Score, hand: Hand) -> Score {
     let mut iter = hand.iter().peekable();
     while let Some(pip) = iter.next() {
         let mut count = 1;
-        while iter.peek()
-                  .map(|&&peek| peek == pip + count)
-                  .unwrap_or(false) {
-            iter.next();
-            count += 1;
+        while let Some(&&peek) = iter.peek() {
+            if peek <= pip + count {
+                iter.next();
+                // skip if it was just the same, not one more
+                if peek == pip + count {
+                    count += 1;
+                }
+            } else {
+                break;
+            }
         }
         if count >= length {
             return score;
@@ -118,18 +121,32 @@ mod tests {
         assert_eq!(generic_identical(vec![3], total, vec![3, 4, 6, 6, 6]), 25);
         assert_eq!(generic_identical(vec![3], total, vec![3, 6, 6, 6, 6]), 27);
 
-        assert_eq!(generic_identical(vec![2, 3], |_| 25, vec![2, 2, 3, 3, 3]), 25);
-        assert_eq!(generic_identical(vec![2, 3], |_| 25, vec![2, 2, 3, 3, 4]), 0);
-        assert_eq!(generic_identical(vec![2, 3], |_| 25, vec![2, 2, 2, 2, 2]), 0);
+        assert_eq!(
+            generic_identical(vec![2, 3], |_| 25, vec![2, 2, 3, 3, 3]),
+            25
+        );
+        assert_eq!(
+            generic_identical(vec![2, 3], |_| 25, vec![2, 2, 3, 3, 4]),
+            0
+        );
+        assert_eq!(
+            generic_identical(vec![2, 3], |_| 25, vec![2, 2, 2, 2, 2]),
+            0
+        );
         assert_eq!(generic_identical(vec![5], |_| 50, vec![2, 2, 2, 2, 2]), 50);
-        assert_eq!(generic_identical(vec![2, 2, 2], |_| 45, vec![2, 2, 4, 4, 6, 6]), 45);
+        assert_eq!(
+            generic_identical(vec![2, 2, 2], |_| 45, vec![2, 2, 4, 4, 6, 6]),
+            45
+        );
     }
 
     #[test]
     fn test_generic_straight() {
+        assert_eq!(generic_straight(4, 30, vec![1, 2, 2, 3, 4, 6]), 30);
         assert_eq!(generic_straight(4, 30, vec![1, 2, 3, 4, 6, 7]), 30);
         assert_eq!(generic_straight(4, 30, vec![1, 3, 4, 5, 6, 7]), 30);
         assert_eq!(generic_straight(4, 30, vec![1, 2, 4, 5, 6, 7]), 30);
+        assert_eq!(generic_straight(4, 30, vec![1, 1, 2, 3, 6, 7]), 0);
         assert_eq!(generic_straight(4, 30, vec![1, 3, 4, 5, 6, 7]), 30);
         assert_eq!(generic_straight(5, 40, vec![1, 3, 4, 5, 6, 7]), 40);
     }
