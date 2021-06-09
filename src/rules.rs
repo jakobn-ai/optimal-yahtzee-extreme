@@ -179,8 +179,8 @@ mod tests {
         assert_eq!(rules.dice, [((1, 6), 5)].iter().cloned().collect());
         assert_eq!(rules.chips, 0);
 
-        assert_eq!(rules.fields[0].len(), US_LENGTH);
-        assert_eq!(rules.fields[1].len(), LS_LENGTH);
+        assert_eq!(rules.fields[US].len(), US_LENGTH);
+        assert_eq!(rules.fields[LS].len(), LS_LENGTH);
         for (i, field) in [
             vec![
                 (vec![1, 1, 1, 1, 2], 4),
@@ -209,84 +209,9 @@ mod tests {
         }
 
         assert_eq!(rules.us_bonus, [63, 35]);
-
-        // Yahtzee has not yet been scored, no bonus
-        let empty_scorecard = [vec![-1; US_LENGTH], vec![-1; LS_LENGTH]];
-        let empty_scorecard_vec = Vec::<ScoreCard>::new();
         assert_eq!(
-            (rules.yahtzee_bonus)(&empty_scorecard, 1),
-            empty_scorecard_vec
-        );
-
-        // Yahtzee was zeroed, no bonus
-        let mut zeroed_yahtzee = empty_scorecard.clone();
-        zeroed_yahtzee[1][YAHTZEE_INDEX] = 0;
-        assert_eq!(
-            (rules.yahtzee_bonus)(&zeroed_yahtzee, 1),
-            empty_scorecard_vec
-        );
-
-        let yahtzee_score = 50;
-        let mut have_yahtzee = empty_scorecard.clone();
-        have_yahtzee[1][YAHTZEE_INDEX] = yahtzee_score;
-
-        // Pip in upper section was not used, we must use upper section
-        let mut expected_upper_section = have_yahtzee.clone();
-        // Bonus Yahtzee of Aces gives 5 in Count and Add Only Aces and the bonus
-        expected_upper_section[0][0] = 5;
-        expected_upper_section[1][YAHTZEE_INDEX] += yahtzee_bonus_rules::YAHTZEE_BONUS;
-        assert_eq!(
-            (rules.yahtzee_bonus)(&have_yahtzee, 1),
-            vec![expected_upper_section]
-        );
-
-        // Pip in upper section was used, we are allowed to use lower section
-        let mut full_upper_section = have_yahtzee.clone();
-        full_upper_section[0][0] = 1;
-        // Fill Chance in lower section to check it is not overwritten
-        full_upper_section[1][LS_LENGTH - 1] = 10;
-        let mut expected_full_upper_section = full_upper_section.clone();
-        expected_full_upper_section[1][YAHTZEE_INDEX] += yahtzee_bonus_rules::YAHTZEE_BONUS;
-        let mut expected_full_upper_sections = Vec::<ScoreCard>::new();
-        for (i, &score) in [5, 5, 25, 30, 40].iter().enumerate() {
-            let mut used_field = expected_full_upper_section.clone();
-            used_field[1][i] = score;
-            expected_full_upper_sections.push(used_field);
-        }
-        assert_eq!(
-            (rules.yahtzee_bonus)(&full_upper_section, 1),
-            expected_full_upper_sections
-        );
-
-        // Pip in upper section was used and lower section is full, we must zero one in upper
-        // section
-        let mut full_lower_section = full_upper_section.clone();
-        for field in 0..YAHTZEE_INDEX {
-            full_lower_section[1][field] = 0;
-        }
-        let mut expected_full_lower_section = full_lower_section.clone();
-        expected_full_lower_section[1][YAHTZEE_INDEX] += yahtzee_bonus_rules::YAHTZEE_BONUS;
-        let mut expected_full_lower_sections = Vec::<ScoreCard>::new();
-        for field in 1..US_LENGTH {
-            let mut used_field = expected_full_lower_section.clone();
-            used_field[0][field] = 0;
-            expected_full_lower_sections.push(used_field);
-        }
-        assert_eq!(
-            (rules.yahtzee_bonus)(&full_lower_section, 1),
-            expected_full_lower_sections
-        );
-
-        // Win bonus twice
-        let mut two_bonuses = have_yahtzee.clone();
-        two_bonuses[0][1] = 10;
-        two_bonuses[1][YAHTZEE_INDEX] += yahtzee_bonus_rules::YAHTZEE_BONUS;
-        let mut expected_two_bonuses = two_bonuses.clone();
-        expected_two_bonuses[0][0] = 5;
-        expected_two_bonuses[1][YAHTZEE_INDEX] += yahtzee_bonus_rules::YAHTZEE_BONUS;
-        assert_eq!(
-            (rules.yahtzee_bonus)(&two_bonuses, 1),
-            vec![expected_two_bonuses]
+            rules.yahtzee_bonus as usize,
+            yahtzee_bonus_rules::FORCED_JOKER as usize
         );
     }
 
@@ -300,8 +225,8 @@ mod tests {
         );
         assert_eq!(rules.chips, 3);
 
-        assert_eq!(rules.fields[0].len(), US_LENGTH);
-        assert_eq!(rules.fields[1].len(), 16);
+        assert_eq!(rules.fields[US].len(), US_LENGTH);
+        assert_eq!(rules.fields[LS].len(), 16);
         for (i, field) in [
             vec![
                 (vec![1, 1, 1, 1, 2, 2], 4),
@@ -339,13 +264,9 @@ mod tests {
         }
 
         assert_eq!(rules.us_bonus, [73, 45]);
-
-        let mut test_yahtzee_bonus_ls = vec![-1; 16];
-        // add a Yahtzee just to make sure
-        test_yahtzee_bonus_ls[10] = 50;
         assert_eq!(
-            (rules.yahtzee_bonus)(&[vec![-1; US_LENGTH], test_yahtzee_bonus_ls], 1),
-            Vec::<ScoreCard>::new()
+            rules.yahtzee_bonus as usize,
+            yahtzee_bonus_rules::NONE as usize
         );
     }
 }
