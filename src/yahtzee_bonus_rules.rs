@@ -250,7 +250,10 @@ mod tests {
             use_field[LS][field] = score;
             expected_unused_upper_sections.push(use_field);
         }
-        assert_eq!(FREE_JOKER(&unused_upper_section, 1), expected_unused_upper_sections);
+        assert_eq!(
+            FREE_JOKER(&unused_upper_section, 1),
+            expected_unused_upper_sections
+        );
 
         let mut full_upper_section = have_yahtzee.clone();
         full_upper_section[US][0] = 5;
@@ -258,12 +261,19 @@ mod tests {
         expected_full_upper_section[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
         let mut expected_full_upper_sections = Vec::<ScoreCard>::new();
         // With the field filled in the upper section, can now use bonuses in the lower section
-        for (field, &score) in [5, 5, 25, 30, 40, 50, 5].iter().enumerate().filter(|&(field, _)| field != YAHTZEE_INDEX) {
+        for (field, &score) in [5, 5, 25, 30, 40, 50, 5]
+            .iter()
+            .enumerate()
+            .filter(|&(field, _)| field != YAHTZEE_INDEX)
+        {
             let mut use_field = expected_full_upper_section.clone();
             use_field[LS][field] = score;
             expected_full_upper_sections.push(use_field);
         }
-        assert_eq!(FREE_JOKER(&full_upper_section, 1), expected_full_upper_sections);
+        assert_eq!(
+            FREE_JOKER(&full_upper_section, 1),
+            expected_full_upper_sections
+        );
 
         test_common_zeroing_and_two_bonuses(FREE_JOKER);
     }
