@@ -43,22 +43,20 @@ pub const FORCED_JOKER: Rules = |score_card, pip| {
     let upper_section_pip_index = (pip - 1) as usize;
     if score_card[US][upper_section_pip_index] < 0 {
         // Upper section was unused, must use
-        score_card_copy[US][upper_section_pip_index] = YAHTZEE_SIZE as Score * pip as Score;
+        score_card_copy[US][upper_section_pip_index] = (YAHTZEE_SIZE * pip) as Score;
         return vec![score_card_copy];
     }
 
     let mut score_cards = Vec::<ScoreCard>::new();
     let joker_fields = joker_fields();
-    // Cannot apply Yahtzee bonus to Yahtzee itself, cannot use used fields
-    for field in
-        (0..LS_LENGTH).filter(|&field| field != YAHTZEE_INDEX && score_card_copy[LS][field] < 0)
-    {
+    // Cannot use used fields
+    for field in (0..LS_LENGTH).filter(|&field| score_card_copy[LS][field] < 0) {
         let mut bonus_copy = score_card_copy.clone();
         bonus_copy[LS][field] = match joker_fields.get(&field) {
             // Bonus
             Some(&score) => score,
             // Count all
-            None => YAHTZEE_SIZE as Score * pip as Score,
+            None => (YAHTZEE_SIZE * pip) as Score,
         };
         score_cards.push(bonus_copy);
     }
@@ -75,10 +73,56 @@ pub const FORCED_JOKER: Rules = |score_card, pip| {
     score_cards
 };
 
+/// Free Joker rules, a popular alternative
+pub const FREE_JOKER: Rules = |score_card, pip| {
+    if !eligible(&score_card) {
+        return vec![];
+    }
+
+    let mut score_card_copy = score_card.clone();
+    score_card_copy[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
+    let mut score_cards = Vec::<ScoreCard>::new();
+
+    let mut upper_section_was_full = true;
+    let upper_section_pip_index = (pip - 1) as usize;
+    if score_card[US][upper_section_pip_index] < 0 {
+        // Upper section was unused, can use
+        let mut bonus_copy = score_card_copy.clone();
+        bonus_copy[US][upper_section_pip_index] = (YAHTZEE_SIZE * pip) as Score;
+        score_cards.push(bonus_copy);
+        upper_section_was_full = false;
+    }
+
+    let joker_fields = joker_fields();
+    for field in (0..LS_LENGTH).filter(|&field| score_card_copy[LS][field] < 0) {
+        let mut bonus_copy = score_card_copy.clone();
+        let joker_score = joker_fields.get(&field);
+        if let Some(score) = &joker_score {
+            if upper_section_was_full {
+                bonus_copy[LS][field] = **score;
+                score_cards.push(bonus_copy);
+            }
+        } else {
+            bonus_copy[LS][field] = (YAHTZEE_SIZE * pip) as Score;
+            score_cards.push(bonus_copy);
+        }
+    }
+
+    if score_cards.is_empty() {
+        for field in (0..US_LENGTH).filter(|&field| score_card_copy[US][field] < 0) {
+            let mut bonus_copy = score_card_copy.clone();
+            bonus_copy[US][field] = 0;
+            score_cards.push(bonus_copy);
+        }
+    }
+
+    score_cards
+};
+
 /// No Yahtzee bonus, Yahtzee Extreme
 pub const NONE: Rules = |_, _| vec![];
 
-/// Kniffel rules, as released in German-speaking countries
+/// Kniffel rules, as published in German-speaking countries
 pub const KNIFFEL: Rules = |score_card, pip| {
     if !eligible(&score_card) {
         return vec![];
@@ -91,7 +135,7 @@ pub const KNIFFEL: Rules = |score_card, pip| {
     // Fill Upper Section field if it's still free
     let upper_section_pip_index = (pip - 1) as usize;
     if score_card[US][upper_section_pip_index] < 0 {
-        score_card_copy[US][upper_section_pip_index] = YAHTZEE_SIZE as Score * pip as Score;
+        score_card_copy[US][upper_section_pip_index] = (YAHTZEE_SIZE * pip) as Score;
         return vec![score_card_copy];
     }
 
@@ -124,6 +168,32 @@ mod tests {
         assert_eq!(rules(&zeroed_yahtzee, 1), empty_scorecard_vec);
     }
 
+    fn test_common_zeroing_and_two_bonuses(rules: Rules) {
+        // Pip in upper section was used and lower section is full, we must zero one in upper
+        // section
+        let mut full = [vec![-1; US_LENGTH], vec![0; LS_LENGTH]];
+        full[US][0] = 0;
+        full[LS][YAHTZEE_INDEX] = YAHTZEE_SCORE;
+        let mut expected_full = full.clone();
+        expected_full[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
+        let mut expected_fulls = Vec::<ScoreCard>::new();
+        for field in 1..US_LENGTH {
+            let mut use_field = expected_full.clone();
+            use_field[US][field] = 0;
+            expected_fulls.push(use_field);
+        }
+        assert_eq!(rules(&full, 1), expected_fulls);
+
+        // Win bonus twice
+        let mut two_bonuses = full.clone();
+        two_bonuses[US][0] = 5;
+        two_bonuses[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
+        let mut expected_two_bonuses = two_bonuses.clone();
+        expected_two_bonuses[US][1] = 10;
+        expected_two_bonuses[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
+        assert_eq!(rules(&two_bonuses, 2), vec![expected_two_bonuses]);
+    }
+
     #[test]
     fn test_forced_joker() {
         test_common(FORCED_JOKER);
@@ -146,43 +216,56 @@ mod tests {
         let mut expected_full_upper_section = full_upper_section.clone();
         expected_full_upper_section[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
         let mut expected_full_upper_sections = Vec::<ScoreCard>::new();
-        for (i, &score) in [5, 5, 25, 30, 40].iter().enumerate() {
-            let mut used_field = expected_full_upper_section.clone();
-            used_field[LS][i] = score;
-            expected_full_upper_sections.push(used_field);
+        for (field, &score) in [5, 5, 25, 30, 40].iter().enumerate() {
+            let mut use_field = expected_full_upper_section.clone();
+            use_field[LS][field] = score;
+            expected_full_upper_sections.push(use_field);
         }
         assert_eq!(
             FORCED_JOKER(&full_upper_section, 1),
             expected_full_upper_sections
         );
 
-        // Pip in upper section was used and lower section is full, we must zero one in upper
-        // section
-        let mut full_lower_section = full_upper_section.clone();
-        for field in 0..YAHTZEE_INDEX {
-            full_lower_section[LS][field] = 0;
-        }
-        let mut expected_full_lower_section = full_lower_section.clone();
-        expected_full_lower_section[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
-        let mut expected_full_lower_sections = Vec::<ScoreCard>::new();
-        for field in 1..US_LENGTH {
-            let mut used_field = expected_full_lower_section.clone();
-            used_field[US][field] = 0;
-            expected_full_lower_sections.push(used_field);
-        }
-        assert_eq!(
-            FORCED_JOKER(&full_lower_section, 1),
-            expected_full_lower_sections
-        );
+        test_common_zeroing_and_two_bonuses(FORCED_JOKER);
+    }
 
-        // Win bonus twice
-        let mut two_bonuses = have_yahtzee.clone();
-        two_bonuses[US][1] = 10;
-        two_bonuses[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
-        let mut expected_two_bonuses = two_bonuses.clone();
-        expected_two_bonuses[US][0] = 5;
-        expected_two_bonuses[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
-        assert_eq!(FORCED_JOKER(&two_bonuses, 1), vec![expected_two_bonuses]);
+    #[test]
+    fn test_free_joker() {
+        test_common(FREE_JOKER);
+
+        let mut have_yahtzee = [vec![-1; US_LENGTH], vec![-1; LS_LENGTH]];
+        have_yahtzee[LS][YAHTZEE_INDEX] = YAHTZEE_SCORE;
+
+        let mut unused_upper_section = have_yahtzee.clone();
+        unused_upper_section[LS][LS_LENGTH - 1] = 10;
+        let mut expected_unused_upper_section = unused_upper_section.clone();
+        expected_unused_upper_section[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
+        // We can use the upper section
+        let mut use_upper_section = expected_unused_upper_section.clone();
+        use_upper_section[US][0] = 5;
+        let mut expected_unused_upper_sections = vec![use_upper_section];
+        // Likewise, we can use the lower section, but not with a bonus
+        for (field, &score) in [5; 2].iter().enumerate() {
+            let mut use_field = expected_unused_upper_section.clone();
+            use_field[LS][field] = score;
+            expected_unused_upper_sections.push(use_field);
+        }
+        assert_eq!(FREE_JOKER(&unused_upper_section, 1), expected_unused_upper_sections);
+
+        let mut full_upper_section = have_yahtzee.clone();
+        full_upper_section[US][0] = 5;
+        let mut expected_full_upper_section = full_upper_section.clone();
+        expected_full_upper_section[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
+        let mut expected_full_upper_sections = Vec::<ScoreCard>::new();
+        // With the field filled in the upper section, can now use bonuses in the lower section
+        for (field, &score) in [5, 5, 25, 30, 40, 50, 5].iter().enumerate().filter(|&(field, _)| field != YAHTZEE_INDEX) {
+            let mut use_field = expected_full_upper_section.clone();
+            use_field[LS][field] = score;
+            expected_full_upper_sections.push(use_field);
+        }
+        assert_eq!(FREE_JOKER(&full_upper_section, 1), expected_full_upper_sections);
+
+        test_common_zeroing_and_two_bonuses(FREE_JOKER);
     }
 
     #[test]
@@ -235,4 +318,4 @@ mod tests {
     }
 }
 
-// TODO add Free Joker, original rules
+// TODO add original rules
