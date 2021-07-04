@@ -30,8 +30,9 @@ fn eligible(score_card: &ScoreCard) -> bool {
     score_card[LS][YAHTZEE_INDEX] > 0
 }
 
-/// Forced Joker rules, used in regular Yahtzee
-pub const FORCED_JOKER: Rules = |score_card, pip| {
+/// Generic joker rules, upper_section means upper section must be used
+/// (otherwise: upper section _cannot_ be used)
+fn generic_joker(score_card: &ScoreCard, pip: Pip, upper_section: bool) -> Vec<ScoreCard> {
     if !eligible(&score_card) {
         return vec![];
     }
@@ -40,15 +41,17 @@ pub const FORCED_JOKER: Rules = |score_card, pip| {
     let mut bonus_applied = score_card.clone();
     bonus_applied[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
 
-    let upper_section_pip_index = (pip - 1) as usize;
-    if score_card[US][upper_section_pip_index] < 0 {
-        // Upper section was unused, must use
-        bonus_applied[US][upper_section_pip_index] = (YAHTZEE_SIZE * pip) as Score;
-        return vec![bonus_applied];
+    if upper_section {
+        let upper_section_pip_index = (pip - 1) as usize;
+        if score_card[US][upper_section_pip_index] < 0 {
+            // Upper section was unused, must use
+            bonus_applied[US][upper_section_pip_index] = (YAHTZEE_SIZE * pip) as Score;
+            return vec![bonus_applied];
+        }
     }
 
-    // Cannot use used fields
     let mut score_cards: Vec<ScoreCard> = (0..LS_LENGTH)
+        // Cannot use used fields
         .filter(|&field| score_card[LS][field] < 0)
         .map(|field| {
             let mut card = bonus_applied.clone();
@@ -75,7 +78,13 @@ pub const FORCED_JOKER: Rules = |score_card, pip| {
     }
 
     score_cards
-};
+}
+
+/// Forced Joker rules, used in regular Yahtzee
+pub const FORCED_JOKER: Rules = |score_card, pip| generic_joker(score_card, pip, true);
+
+/// Original 1956 rules
+pub const ORIGINAL: Rules = |score_card, pip| generic_joker(score_card, pip, false);
 
 /// Free Joker rules, a popular alternative
 pub const FREE_JOKER: Rules = |score_card, pip| {
@@ -125,9 +134,6 @@ pub const FREE_JOKER: Rules = |score_card, pip| {
     score_cards
 };
 
-/// No Yahtzee bonus, Yahtzee Extreme
-pub const NONE: Rules = |_, _| vec![];
-
 /// Kniffel rules, as published in German-speaking countries
 pub const KNIFFEL: Rules = |score_card, pip| {
     if !eligible(&score_card) {
@@ -158,6 +164,9 @@ pub const KNIFFEL: Rules = |score_card, pip| {
     score_cards
 };
 
+/// No Yahtzee bonus, Yahtzee Extreme
+pub const NONE: Rules = |_, _| vec![];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -173,9 +182,9 @@ mod tests {
         assert_eq!(rules(&zeroed_yahtzee, 1), Vec::<ScoreCard>::new());
     }
 
-    fn test_common_zeroing_and_two_bonuses(rules: Rules) {
-        // Pip in upper section was used and lower section is full, we must zero one in upper
-        // section
+    fn test_common_zeroing(rules: Rules) {
+        // Pip in upper section was used and lower section is full,
+        // we must zero one in upper section
         let mut full = [vec![-1; US_LENGTH], vec![0; LS_LENGTH]];
         full[US][0] = 0;
         full[LS][YAHTZEE_INDEX] = YAHTZEE_SCORE;
@@ -189,15 +198,18 @@ mod tests {
             })
             .collect();
         assert_eq!(rules(&full, 1), expected_fulls);
+    }
 
-        // Win bonus twice
-        let mut two_bonuses = full.clone();
-        two_bonuses[US][0] = 5;
-        two_bonuses[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
-        let mut expected_two_bonuses = two_bonuses.clone();
-        expected_two_bonuses[US][1] = 10;
-        expected_two_bonuses[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
-        assert_eq!(rules(&two_bonuses, 2), vec![expected_two_bonuses]);
+    fn test_common_two_bonuses(rules: Rules) {
+        // Win bonus twice, first used for Three of a Kind, force use for Four of a Kind
+        let mut one_bonus = [vec![0; US_LENGTH], vec![0; LS_LENGTH]];
+        one_bonus[LS][0] = 5;
+        one_bonus[LS][1] = -1;
+        one_bonus[LS][YAHTZEE_INDEX] = YAHTZEE_SCORE + YAHTZEE_BONUS;
+        let mut expected = one_bonus.clone();
+        expected[LS][1] = 5;
+        expected[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
+        assert_eq!(rules(&one_bonus, 1), vec![expected]);
     }
 
     #[test]
@@ -235,7 +247,32 @@ mod tests {
             expected_full_upper_sections
         );
 
-        test_common_zeroing_and_two_bonuses(FORCED_JOKER);
+        test_common_zeroing(FORCED_JOKER);
+        test_common_two_bonuses(FORCED_JOKER);
+    }
+
+    #[test]
+    fn test_original() {
+        test_common(ORIGINAL);
+
+        let mut have_yahtzee = [vec![-1; US_LENGTH], vec![-1; LS_LENGTH]];
+        have_yahtzee[LS][YAHTZEE_INDEX] = YAHTZEE_SCORE;
+        have_yahtzee[LS][LS_LENGTH - 1] = 10;
+        let mut expected = have_yahtzee.clone();
+        expected[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
+        let expecteds: Vec<ScoreCard> = [5, 5, 25, 30, 40]
+            .iter()
+            .enumerate()
+            .map(|(field, &score)| {
+                let mut card = expected.clone();
+                card[LS][field] = score;
+                card
+            })
+            .collect();
+        assert_eq!(ORIGINAL(&have_yahtzee, 1), expecteds);
+
+        test_common_zeroing(ORIGINAL);
+        test_common_two_bonuses(ORIGINAL);
     }
 
     #[test]
@@ -290,18 +327,8 @@ mod tests {
             expected_full_upper_sections
         );
 
-        test_common_zeroing_and_two_bonuses(FREE_JOKER);
-    }
-
-    #[test]
-    fn test_none() {
-        let mut test_yahtzee_bonus_ls = vec![-1; 16];
-        // add a Yahtzee just to make sure
-        test_yahtzee_bonus_ls[10] = 50;
-        assert_eq!(
-            NONE(&[vec![-1; US_LENGTH], test_yahtzee_bonus_ls], 1),
-            Vec::<ScoreCard>::new()
-        );
+        test_common_zeroing(FREE_JOKER);
+        test_common_two_bonuses(FREE_JOKER);
     }
 
     #[test]
@@ -357,6 +384,17 @@ mod tests {
             .collect();
         assert_eq!(KNIFFEL(&was_used, 2), expected_used);
     }
+
+    #[test]
+    fn test_none() {
+        let mut test_yahtzee_bonus_ls = vec![-1; 16];
+        // add a Yahtzee just to make sure
+        test_yahtzee_bonus_ls[10] = 50;
+        assert_eq!(
+            NONE(&[vec![-1; US_LENGTH], test_yahtzee_bonus_ls], 1),
+            Vec::<ScoreCard>::new()
+        );
+    }
 }
 
-// TODO add original rules
+// TODO add original rules tests
