@@ -110,7 +110,7 @@ fn build_lower_section_rules(extreme: bool) -> SectionRules {
 
     ls_fields_rules.push((
         String::from("Yahtzee"),
-        Box::new(|hand| generic_identical(vec![5], |_| 50, &hand)),
+        Box::new(|hand| generic_identical(vec![5], |_| YAHTZEE_SCORE, &hand)),
     ));
     if extreme {
         ls_fields_rules.push((
