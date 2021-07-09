@@ -55,6 +55,27 @@ pub const FORCED_JOKER: Rules = |score_card, pip, section, field| {
     }
 };
 
+/// Kniffel rules, as published in German-speaking countries
+pub const KNIFFEL: Rules = |score_card, pip, section, field| {
+    score_card[section][field] = match section {
+        US => match pip {
+            pip if pip as usize == field + 1 => (YAHTZEE_SIZE * pip) as Score,
+            _ => 0,
+        },
+        _ => match score_card[US][pip as usize - 1] {
+            -1 => 0,
+            _ => match joker_fields().get(&field) {
+                // No joker
+                Some(_) => 0,
+                None => (YAHTZEE_SIZE * pip) as Score,
+            },
+        },
+    };
+    if score_card[section][field] != 0 {
+        score_card[LS][YAHTZEE_INDEX] += YAHTZEE_SCORE;
+    }
+};
+
 /// Free Joker rules, a popular alternative
 pub const FREE_JOKER: Rules = |score_card, pip, section, field| {
     score_card[section][field] = match section {
@@ -107,14 +128,14 @@ mod tests {
         }};
     }
 
-    fn test_generic_upper_section(rules: Rules) {
+    fn test_generic_upper_section(rules: Rules, bonus: Score) {
         let have_yahtzee = have_yahtzee!();
 
         // Upper section should award points when available
         let mut upper_section_available = have_yahtzee.clone();
         let mut expected = upper_section_available.clone();
         expected[US][0] = 5;
-        expected[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
+        expected[LS][YAHTZEE_INDEX] += bonus;
         rules(&mut upper_section_available, 1, 0, 0);
         assert_eq!(upper_section_available, expected);
 
@@ -126,9 +147,7 @@ mod tests {
         assert_eq!(wrong_field, expected);
     }
 
-    #[test]
-    fn test_forced_joker() {
-        test_generic_upper_section(FORCED_JOKER);
+    fn test_generic_lower_section(rules: Rules, bonus: Score) -> ScoreCard {
         let have_yahtzee = have_yahtzee!();
 
         // Attempt score in lower section when upper section is still available,
@@ -136,7 +155,7 @@ mod tests {
         let mut upper_section_unused = have_yahtzee.clone();
         let mut expected = upper_section_unused.clone();
         expected[LS][0] = 0;
-        FORCED_JOKER(&mut upper_section_unused, 1, 1, 0);
+        rules(&mut upper_section_unused, 1, 1, 0);
         assert_eq!(upper_section_unused, expected);
 
         // Lower section should award points when upper section is full
@@ -144,12 +163,22 @@ mod tests {
         upper_section_used[US][0] = 0;
         expected = upper_section_used.clone();
         expected[LS][0] = 5;
-        expected[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
-        FORCED_JOKER(&mut upper_section_used, 1, 1, 0);
+        expected[LS][YAHTZEE_INDEX] += bonus;
+        rules(&mut upper_section_used, 1, 1, 0);
         assert_eq!(upper_section_used, expected);
 
+        // Return for use afterwards
+        upper_section_used
+    }
+
+    #[test]
+    fn test_forced_joker() {
+        test_generic_upper_section(FORCED_JOKER, YAHTZEE_BONUS);
+        let mut upper_section_used = test_generic_lower_section(FORCED_JOKER, YAHTZEE_BONUS);
+
         // should also work with bonus
-        expected[LS][2] = 25;
+        let mut expected = upper_section_used.clone();
+        expected[LS][2] = FULL_HOUSE_SCORE;
         expected[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
         FORCED_JOKER(&mut upper_section_used, 1, 1, 2);
         assert_eq!(upper_section_used, expected);
@@ -157,7 +186,7 @@ mod tests {
 
     #[test]
     fn test_free_joker() {
-        test_generic_upper_section(FREE_JOKER);
+        test_generic_upper_section(FREE_JOKER, YAHTZEE_BONUS);
         let have_yahtzee = have_yahtzee!();
 
         // Lower section should award points even when upper section is still available
@@ -172,7 +201,7 @@ mod tests {
         let mut upper_section_used = upper_section_unused.clone();
         upper_section_used[US][0] = 1;
         expected = upper_section_used.clone();
-        expected[LS][3] = 30;
+        expected[LS][3] = SMALL_STRAIGHT_SCORE;
         expected[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
         FREE_JOKER(&mut upper_section_used, 1, 1, 3);
         assert_eq!(upper_section_used, expected);
@@ -206,10 +235,28 @@ mod tests {
         assert_eq!(lower_section, expected);
 
         // should also work with bonus
-        expected[LS][4] = 40;
+        expected[LS][4] = LARGE_STRAIGHT_SCORE;
         expected[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
         ORIGINAL(&mut lower_section, 1, 1, 4);
         assert_eq!(lower_section, expected);
+    }
+
+    #[test]
+    fn test_kniffel() {
+        test_generic_upper_section(KNIFFEL, YAHTZEE_SCORE);
+        let mut upper_section_used = test_generic_lower_section(KNIFFEL, YAHTZEE_SCORE);
+
+        // should not work with bonus
+        let mut expected = upper_section_used.clone();
+        expected[LS][2] = 0;
+        KNIFFEL(&mut upper_section_used, 1, 1, 2);
+        assert_eq!(upper_section_used, expected);
+
+        // but should work with Chance
+        expected[LS][6] = 5;
+        expected[LS][YAHTZEE_INDEX] += YAHTZEE_SCORE;
+        KNIFFEL(&mut upper_section_used, 1, 1, 6);
+        assert_eq!(upper_section_used, expected);
     }
 
     #[test]
@@ -218,5 +265,3 @@ mod tests {
         NONE(&mut have_yahtzee!(), 1, 0, 0);
     }
 }
-
-// TODO original, Kniffel
