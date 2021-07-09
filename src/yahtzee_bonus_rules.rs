@@ -120,16 +120,15 @@ pub const NONE: Rules = |_, _, _, _| {
 #[cfg(test)]
 mod tests {
     use super::*;
-    macro_rules! have_yahtzee {
-        () => {{
-            let mut have_yahtzee = [vec![-1; US_LENGTH], vec![-1; LS_LENGTH]];
-            have_yahtzee[LS][YAHTZEE_INDEX] = YAHTZEE_SCORE;
-            have_yahtzee
-        }};
+
+    fn have_yahtzee() -> ScoreCard {
+        let mut have_yahtzee = [vec![-1; US_LENGTH], vec![-1; LS_LENGTH]];
+        have_yahtzee[LS][YAHTZEE_INDEX] = YAHTZEE_SCORE;
+        have_yahtzee
     }
 
     fn test_generic_upper_section(rules: Rules, bonus: Score) {
-        let have_yahtzee = have_yahtzee!();
+        let have_yahtzee = have_yahtzee();
 
         // Upper section should award points when available
         let mut upper_section_available = have_yahtzee.clone();
@@ -148,7 +147,7 @@ mod tests {
     }
 
     fn test_generic_lower_section(rules: Rules, bonus: Score) -> ScoreCard {
-        let have_yahtzee = have_yahtzee!();
+        let have_yahtzee = have_yahtzee();
 
         // Attempt score in lower section when upper section is still available,
         // should not award points
@@ -187,7 +186,7 @@ mod tests {
     #[test]
     fn test_free_joker() {
         test_generic_upper_section(FREE_JOKER, YAHTZEE_BONUS);
-        let have_yahtzee = have_yahtzee!();
+        let have_yahtzee = have_yahtzee();
 
         // Lower section should award points even when upper section is still available
         let mut upper_section_unused = have_yahtzee.clone();
@@ -217,7 +216,7 @@ mod tests {
 
     #[test]
     fn test_original() {
-        let have_yahtzee = have_yahtzee!();
+        let have_yahtzee = have_yahtzee();
 
         // Upper section should not award points
         let mut upper_section = have_yahtzee.clone();
@@ -262,6 +261,6 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_none() {
-        NONE(&mut have_yahtzee!(), 1, 0, 0);
+        NONE(&mut have_yahtzee(), 1, 0, 0);
     }
 }
