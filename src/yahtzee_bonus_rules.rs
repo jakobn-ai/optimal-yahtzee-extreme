@@ -76,6 +76,21 @@ pub const FREE_JOKER: Rules = |score_card, pip, section, field| {
     }
 };
 
+/// Original 1956 rules
+pub const ORIGINAL: Rules = |score_card, pip, section, field| {
+    score_card[section][field] = match section {
+        // Upper section cannot be used
+        US => 0,
+        _ => match joker_fields().get(&field) {
+            Some(&score) => score,
+            None => (YAHTZEE_SIZE * pip) as Score,
+        },
+    };
+    if score_card[section][field] != 0 {
+        score_card[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
+    }
+};
+
 /// No Yahtzee bonus, Yahtzee extreme
 pub const NONE: Rules = |_, _, _, _| {
     panic!("Rules NONE should not be applied");
@@ -169,6 +184,32 @@ mod tests {
         expected[LS][2] = 0;
         FREE_JOKER(&mut upper_section_unused, 1, 1, 2);
         assert_eq!(upper_section_unused, expected);
+    }
+
+    #[test]
+    fn test_original() {
+        let have_yahtzee = have_yahtzee!();
+
+        // Upper section should not award points
+        let mut upper_section = have_yahtzee.clone();
+        let mut expected = upper_section.clone();
+        expected[US][0] = 0;
+        ORIGINAL(&mut upper_section, 1, 0, 0);
+        assert_eq!(upper_section, expected);
+
+        // Lower section should award points
+        let mut lower_section = have_yahtzee.clone();
+        expected = lower_section.clone();
+        expected[LS][0] = 5;
+        expected[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
+        ORIGINAL(&mut lower_section, 1, 1, 0);
+        assert_eq!(lower_section, expected);
+
+        // should also work with bonus
+        expected[LS][4] = 40;
+        expected[LS][YAHTZEE_INDEX] += YAHTZEE_BONUS;
+        ORIGINAL(&mut lower_section, 1, 1, 4);
+        assert_eq!(lower_section, expected);
     }
 
     #[test]
