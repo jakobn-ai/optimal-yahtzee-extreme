@@ -84,7 +84,7 @@ fn build_lower_section_rules(extreme: bool) -> SectionRules {
 
     ls_fields_rules.push((
         String::from("Full House"),
-        Box::new(|hand| generic_identical(vec![2, 3], |_| 25, &hand)),
+        Box::new(|hand| generic_identical(vec![2, 3], |_| FULL_HOUSE_SCORE, &hand)),
     ));
     if extreme {
         ls_fields_rules.push((
@@ -95,11 +95,11 @@ fn build_lower_section_rules(extreme: bool) -> SectionRules {
 
     ls_fields_rules.push((
         String::from("Small Straight"),
-        Box::new(|hand| generic_straight(4, 30, &hand)),
+        Box::new(|hand| generic_straight(4, SMALL_STRAIGHT_SCORE, &hand)),
     ));
     ls_fields_rules.push((
         String::from("Large Straight"),
-        Box::new(|hand| generic_straight(5, 40, &hand)),
+        Box::new(|hand| generic_straight(5, LARGE_STRAIGHT_SCORE, &hand)),
     ));
     if extreme {
         ls_fields_rules.push((
