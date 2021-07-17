@@ -7,10 +7,12 @@ use crate::global::*;
 use crate::hands::*;
 use crate::yahtzee_bonus_rules;
 
+/// Die with minimum and maximum, e.g. (1, 6) for d6
+pub type Die = (Pip, Pip);
 /// Rules for dice used
 /// * Key: Minimum and maximum pip, e.g. (1, 6) for d6
 /// * Value: Frequency, e.g. 5 for key 6 in regular Yahtzee (5 d6)
-type DiceRules = HashMap<(Pip, Pip), Frequency>;
+pub type DiceRules = HashMap<Die, Frequency>;
 /// Rules for reroll chips used, specify amount per player
 type ChipsRules = u8;
 /// Function that calculates a score from a hand
@@ -42,7 +44,7 @@ fn build_upper_section_rules() -> SectionRules {
         .map(|field| format!("Count and Add Only {}", field));
     // Curry fields 1-6 into generic_upper_section to get actual upper section fields rules
     let upper_section_functions = (1..(US_LENGTH + 1) as Pip).map(|field: Pip| -> ScoreFunction {
-        Box::new(move |hand| generic_upper_section(field, &hand))
+        Box::new(move |hand| generic_upper_section(field, hand))
     });
     upper_section_names.zip(upper_section_functions).collect()
 }
