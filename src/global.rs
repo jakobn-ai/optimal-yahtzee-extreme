@@ -6,13 +6,15 @@ pub type Pip = u8;
 pub type Frequency = u8;
 /// Score on the card, both individual hands and end results
 pub type Score = i16;
-/// Scorecard for player
+/// Reroll chip count
+pub type Chips = u8;
+/// Score card for player, only indicating whether used or not
 /// * Array: Upper section and lower section
-/// * Inner vector: Individual scores per&hand
-pub type ScoreCard = [Vec<Score>; 2];
-/// Section in scorecard
+/// * Inner vector: Individual scores per hand
+pub type ScoreCard = [Vec<bool>; 2];
+/// Section index in scorecard
 pub type Section = usize;
-/// Field in section
+/// Field index in section
 pub type Field = usize;
 
 /// Index of upper section
@@ -20,10 +22,12 @@ pub const US: usize = 0;
 /// Field count in upper section
 pub const US_LENGTH: usize = 6;
 /// Index of lower section
+#[cfg(test)]
 pub const LS: usize = 1;
 /// Size of a Yahtzee
 pub const YAHTZEE_SIZE: Frequency = 5;
 /// Index of Yahtzee in lower section (zero-indexed)
+#[cfg(test)]
 pub const YAHTZEE_INDEX: usize = 5;
 
 /// Scores of various hands

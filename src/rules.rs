@@ -14,7 +14,7 @@ pub type Die = (Pip, Pip);
 /// * Value: Frequency, e.g. 5 for key 6 in regular Yahtzee (5 d6)
 pub type DiceRules = HashMap<Die, Frequency>;
 /// Rules for reroll chips used, specify amount per player
-type ChipsRules = u8;
+type ChipsRules = Chips;
 /// Function that calculates a score from a hand
 type ScoreFunction = Box<dyn Fn(&Hand) -> Score>;
 /// Rules for allowed fields (upper or lower section)
