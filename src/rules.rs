@@ -7,8 +7,6 @@ use crate::global::*;
 use crate::hands::*;
 use crate::yahtzee_bonus_rules;
 
-/// Die with minimum and maximum, e.g. (1, 6) for d6
-pub type Die = (Pip, Pip);
 /// Rules for dice used
 /// * Key: Minimum and maximum pip, e.g. (1, 6) for d6
 /// * Value: Frequency, e.g. 5 for key 6 in regular Yahtzee (5 d6)
@@ -16,37 +14,46 @@ pub type DiceRules = HashMap<Die, Frequency>;
 /// Rules for reroll chips used, specify amount per player
 type ChipsRules = Chips;
 /// Function that calculates a score from a hand
-type ScoreFunction = Box<dyn Fn(&Hand) -> Score>;
-/// Rules for allowed fields (upper or lower section)
+type ScoreFunction = Box<dyn Fn(&HandSlice) -> Score>;
+/// Rule for field on score card
 /// * First field: Name of field for user interaction
 /// * Second field: Function from hand to score
-type SectionRules = Vec<(String, ScoreFunction)>;
+pub struct SectionRule {
+    pub name: String,
+    pub function: ScoreFunction,
+}
+/// Rules in a section
+type SectionRules = Vec<SectionRule>;
 /// Rules for allowed fields (upper and lower section)
 type FieldsRules = [SectionRules; 2];
 /// Rule for upper section bonus
-/// * First field: Score required to receive upper section bonus (63 in regular Yahtzee)
-/// * Second field: Bonus score granted when requirement was met
-type USBonusRules = [Score; 2];
+#[derive(Debug, PartialEq)]
+pub struct USBonusRules {
+    /// Score required to receive upper section bonus (63 in regular Yahtzee)
+    pub threshold: Score,
+    /// Bonus score granted when requirement was met
+    pub bonus: Score,
+}
 
 /// Rules for a game
-struct Rules {
-    dice: DiceRules,
-    chips: ChipsRules,
-    fields: FieldsRules,
-    us_bonus: USBonusRules,
-    yahtzee_bonus: yahtzee_bonus_rules::Rules,
+pub struct Rules {
+    pub dice: DiceRules,
+    pub chips: ChipsRules,
+    pub fields: FieldsRules,
+    pub us_bonus: USBonusRules,
+    pub yahtzee_bonus: yahtzee_bonus_rules::Rules,
 }
 
 /// Build upper section fields rules
 fn build_upper_section_rules() -> SectionRules {
-    let upper_section_names = ["Aces", "Twos", "Threes", "Fours", "Fives", "Sixes"]
+    ["Aces", "Twos", "Threes", "Fours", "Fives", "Sixes"]
         .iter()
-        .map(|field| format!("Count and Add Only {}", field));
-    // Curry fields 1-6 into generic_upper_section to get actual upper section fields rules
-    let upper_section_functions = (1..(US_LENGTH + 1) as Pip).map(|field: Pip| -> ScoreFunction {
-        Box::new(move |hand| generic_upper_section(field, hand))
-    });
-    upper_section_names.zip(upper_section_functions).collect()
+        .zip(1..(US_LENGTH + 1) as Pip)
+        .map(|(name, field)| SectionRule {
+            name: format!("Count and Add Only {}", name),
+            function: Box::new(move |hand| generic_upper_section(field, hand)),
+        })
+        .collect()
 }
 
 /// Build lower section fields rules
@@ -60,81 +67,84 @@ fn build_lower_section_rules(extreme: bool) -> SectionRules {
     // would eliminate the comment function of these strings.
     // If you are reading this and know of a better way, please tell me.
     let mut ls_fields_rules: SectionRules = vec![
-        (
-            String::from("Three of a Kind"),
-            Box::new(|hand| generic_identical(vec![3], total, &hand)),
-        ),
-        (
-            String::from("Four of a Kind"),
-            Box::new(|hand| generic_identical(vec![4], total, &hand)),
-        ),
+        SectionRule {
+            name: String::from("Three of a Kind"),
+            function: Box::new(|hand| generic_identical(vec![3], total, hand)),
+        },
+        SectionRule {
+            name: String::from("Four of a Kind"),
+            function: Box::new(|hand| generic_identical(vec![4], total, hand)),
+        },
     ];
     if extreme {
-        ls_fields_rules.push((
-            String::from("Two Pairs"),
-            Box::new(|hand| generic_identical(vec![2, 2], total, &hand)),
-        ));
-        ls_fields_rules.push((
-            String::from("Three Pairs"),
-            Box::new(|hand| generic_identical(vec![2, 2, 2], |_| 35, &hand)),
-        ));
-        ls_fields_rules.push((
-            String::from("Two Triples"),
-            Box::new(|hand| generic_identical(vec![3, 3], |_| 45, &hand)),
-        ));
+        ls_fields_rules.push(SectionRule {
+            name: String::from("Two Pairs"),
+            function: Box::new(|hand| generic_identical(vec![2, 2], total, hand)),
+        });
+        ls_fields_rules.push(SectionRule {
+            name: String::from("Three Pairs"),
+            function: Box::new(|hand| generic_identical(vec![2, 2, 2], |_| 35, hand)),
+        });
+        ls_fields_rules.push(SectionRule {
+            name: String::from("Two Triples"),
+            function: Box::new(|hand| generic_identical(vec![3, 3], |_| 45, hand)),
+        });
     }
 
-    ls_fields_rules.push((
-        String::from("Full House"),
-        Box::new(|hand| generic_identical(vec![2, 3], |_| FULL_HOUSE_SCORE, &hand)),
-    ));
+    ls_fields_rules.push(SectionRule {
+        name: String::from("Full House"),
+        function: Box::new(|hand| generic_identical(vec![2, 3], |_| FULL_HOUSE_SCORE, hand)),
+    });
     if extreme {
-        ls_fields_rules.push((
-            String::from("Grand Full House"),
-            Box::new(|hand| generic_identical(vec![2, 4], |_| 45, &hand)),
-        ));
+        ls_fields_rules.push(SectionRule {
+            name: String::from("Grand Full House"),
+            function: Box::new(|hand| generic_identical(vec![2, 4], |_| 45, hand)),
+        });
     }
 
-    ls_fields_rules.push((
-        String::from("Small Straight"),
-        Box::new(|hand| generic_straight(4, SMALL_STRAIGHT_SCORE, &hand)),
-    ));
-    ls_fields_rules.push((
-        String::from("Large Straight"),
-        Box::new(|hand| generic_straight(5, LARGE_STRAIGHT_SCORE, &hand)),
-    ));
+    ls_fields_rules.push(SectionRule {
+        name: String::from("Small Straight"),
+        function: Box::new(|hand| generic_straight(4, SMALL_STRAIGHT_SCORE, hand)),
+    });
+    ls_fields_rules.push(SectionRule {
+        name: String::from("Large Straight"),
+        function: Box::new(|hand| generic_straight(5, LARGE_STRAIGHT_SCORE, hand)),
+    });
     if extreme {
-        ls_fields_rules.push((
-            String::from("Highway"),
-            Box::new(|hand| generic_straight(6, 50, &hand)),
-        ));
+        ls_fields_rules.push(SectionRule {
+            name: String::from("Highway"),
+            function: Box::new(|hand| generic_straight(6, 50, hand)),
+        });
     }
 
-    ls_fields_rules.push((
-        String::from("Yahtzee"),
-        Box::new(|hand| generic_identical(vec![5], |_| YAHTZEE_SCORE, &hand)),
-    ));
+    ls_fields_rules.push(SectionRule {
+        name: String::from("Yahtzee"),
+        function: Box::new(|hand| generic_identical(vec![5], |_| YAHTZEE_SCORE, hand)),
+    });
     if extreme {
-        ls_fields_rules.push((
-            String::from("Yahtzee Extreme"),
-            Box::new(|hand| generic_identical(vec![6], |_| 75, &hand)),
-        ));
-        ls_fields_rules.push((
-            String::from("10 or less"),
-            Box::new(|hand| if total(&hand) <= 10 { 40 } else { 0 }),
-        ));
-        ls_fields_rules.push((
-            String::from("33 or more"),
-            Box::new(|hand| if total(&hand) >= 33 { 40 } else { 0 }),
-        ));
+        ls_fields_rules.push(SectionRule {
+            name: String::from("Yahtzee Extreme"),
+            function: Box::new(|hand| generic_identical(vec![6], |_| 75, hand)),
+        });
+        ls_fields_rules.push(SectionRule {
+            name: String::from("10 or less"),
+            function: Box::new(|hand| if total(hand) <= 10 { 40 } else { 0 }),
+        });
+        ls_fields_rules.push(SectionRule {
+            name: String::from("33 or more"),
+            function: Box::new(|hand| if total(hand) >= 33 { 40 } else { 0 }),
+        });
     }
 
-    ls_fields_rules.push((String::from("Chance"), Box::new(total)));
+    ls_fields_rules.push(SectionRule {
+        name: String::from("Chance"),
+        function: Box::new(total),
+    });
     if extreme {
-        ls_fields_rules.push((
-            String::from("Super Chance"),
-            Box::new(|hand| 2 * total(&hand)),
-        ));
+        ls_fields_rules.push(SectionRule {
+            name: String::from("Super Chance"),
+            function: Box::new(|hand| 2 * total(hand)),
+        });
     }
 
     ls_fields_rules
@@ -155,10 +165,19 @@ fn build_rules(extreme: bool) -> Rules {
     let us_fields_rules = build_upper_section_rules();
     let ls_fields_rules = build_lower_section_rules(extreme);
 
-    let us_bonus_rules = if extreme { [73, 45] } else { [63, 35] };
+    let us_bonus_rules = match extreme {
+        true => USBonusRules {
+            threshold: 73,
+            bonus: 45,
+        },
+        _ => USBonusRules {
+            threshold: 63,
+            bonus: 35,
+        },
+    };
     let yahtzee_rules = match extreme {
-        false => yahtzee_bonus_rules::FORCED_JOKER,
         true => yahtzee_bonus_rules::NONE,
+        _ => yahtzee_bonus_rules::FORCED_JOKER,
     };
 
     Rules {
@@ -206,11 +225,17 @@ mod tests {
         .enumerate()
         {
             for (j, (hand, score)) in field.iter().enumerate() {
-                assert_eq!(rules.fields[i][j].1(hand), *score);
+                assert_eq!((rules.fields[i][j].function)(hand), *score);
             }
         }
 
-        assert_eq!(rules.us_bonus, [63, 35]);
+        assert_eq!(
+            rules.us_bonus,
+            USBonusRules {
+                threshold: 63,
+                bonus: 35,
+            }
+        );
         assert_eq!(
             rules.yahtzee_bonus as usize,
             yahtzee_bonus_rules::FORCED_JOKER as usize
@@ -261,11 +286,17 @@ mod tests {
         .enumerate()
         {
             for (j, (hand, score)) in field.iter().enumerate() {
-                assert_eq!(rules.fields[i][j].1(hand), *score);
+                assert_eq!((rules.fields[i][j].function)(hand), *score);
             }
         }
 
-        assert_eq!(rules.us_bonus, [73, 45]);
+        assert_eq!(
+            rules.us_bonus,
+            USBonusRules {
+                threshold: 73,
+                bonus: 45
+            }
+        );
         assert_eq!(
             rules.yahtzee_bonus as usize,
             yahtzee_bonus_rules::NONE as usize

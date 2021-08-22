@@ -2,6 +2,10 @@
 
 /// Number on a die (1-6 for d6)
 pub type Pip = u8;
+/// Die with minimum and maximum, e.g. (1, 6) for d6
+pub type Die = (Pip, Pip);
+/// Dice rolled (5 for regular Yahtzee), assumed to be sorted
+pub type HandSlice = [Pip];
 /// Absolute frequency of a pip in a hand
 pub type Frequency = u8;
 /// Score on the card, both individual hands and end results

@@ -1,13 +1,10 @@
 use crate::global::*;
 
-/// Dice rolled (5 for regular Yahtzee), assumed to be sorted
-pub type Hand = [Pip];
-
 /// Upper section fields
 /// # Arguments
 /// * `field` - required field, e.g. `3` for Count Threes
 /// * `hand` - sorted
-pub fn generic_upper_section(field: Pip, hand: &Hand) -> Score {
+pub fn generic_upper_section(field: Pip, hand: &HandSlice) -> Score {
     hand.iter()
         .skip_while(|&&pip| pip != field)
         .take_while(|&&pip| pip == field)
@@ -17,7 +14,7 @@ pub fn generic_upper_section(field: Pip, hand: &Hand) -> Score {
 
 /// Calculate sum of hand
 #[inline]
-pub fn total(hand: &Hand) -> Score {
+pub fn total(hand: &HandSlice) -> Score {
     hand.iter().sum::<Pip>() as Score
 }
 
@@ -52,10 +49,10 @@ fn identical(hand: &[Pip]) -> Vec<Frequency> {
 /// * `hand` - sorted
 pub fn generic_identical(
     required: Vec<Frequency>,
-    score: fn(&Hand) -> Score,
-    hand: &Hand,
+    score: fn(&HandSlice) -> Score,
+    hand: &HandSlice,
 ) -> Score {
-    let groups = identical(&hand);
+    let groups = identical(hand);
     let mut present = groups.iter();
     'next_req: for req in required.iter() {
         // Discard all non-matching present frequencies.
@@ -63,7 +60,7 @@ pub fn generic_identical(
         // match, e.g. a Four of a Kind can also be counted as a Three of a Kind.
         // Note also that the required frequencies must be counted individually, e.g. a Yahtzee
         // cannot be counted as a Full House when ignoring bonus rules (the pips must be different).
-        while let Some(freq) = present.next() {
+        for freq in &mut present {
             if freq >= req {
                 // Search next criterion
                 continue 'next_req;
@@ -80,7 +77,7 @@ pub fn generic_identical(
 /// * `length` - desired length, e.g. `5` for Large Straight
 /// * `score` - score if the hand is a straight, e.g. `40` for Large Straight
 /// * `hand` - sorted
-pub fn generic_straight(length: Frequency, score: Score, hand: &Hand) -> Score {
+pub fn generic_straight(length: Frequency, score: Score, hand: &HandSlice) -> Score {
     let mut iter = hand.iter().peekable();
     while let Some(pip) = iter.next() {
         let mut count = 1;
