@@ -95,7 +95,6 @@ pub const KNIFFEL: Rules = |score_card, pip, section, field| {
             _ => (0, YAHTZEE_SCORE),
         },
         _ => match score_card[US][pip as usize - 1] {
-            // TODO should we permit forgoing bonus here?
             false => (0, 0),
             _ => match joker_fields().get(&field) {
                 // No joker

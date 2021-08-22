@@ -5,6 +5,8 @@ pub type Pip = u8;
 /// Die with minimum and maximum, e.g. (1, 6) for d6
 pub type Die = (Pip, Pip);
 /// Dice rolled (5 for regular Yahtzee), assumed to be sorted
+pub type Hand = Vec<Pip>;
+/// Hand but it makes Clippy happy
 pub type HandSlice = [Pip];
 /// Absolute frequency of a pip in a hand
 pub type Frequency = u8;
@@ -21,17 +23,17 @@ pub type Section = usize;
 /// Field index in section
 pub type Field = usize;
 
+/// Permitted throws per round
+pub const THROWS: i8 = 3;
 /// Index of upper section
 pub const US: usize = 0;
 /// Field count in upper section
 pub const US_LENGTH: usize = 6;
 /// Index of lower section
-#[cfg(test)]
 pub const LS: usize = 1;
 /// Size of a Yahtzee
 pub const YAHTZEE_SIZE: Frequency = 5;
 /// Index of Yahtzee in lower section (zero-indexed)
-#[cfg(test)]
 pub const YAHTZEE_INDEX: usize = 5;
 
 /// Scores of various hands
