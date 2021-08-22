@@ -22,6 +22,7 @@ pub const YAHTZEE_BONUS: Score = 100;
 /// Indices and scores of fields where Yahtzee might be used as a joker
 /// (Full House, Small & Large Straight)
 #[inline]
+// TODO HashMap necessary?
 fn joker_fields() -> HashMap<usize, Score> {
     [
         (2, FULL_HOUSE_SCORE),

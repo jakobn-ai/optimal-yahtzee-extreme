@@ -1,25 +1,29 @@
 // to quiet warnings, TODO use
 #![allow(dead_code)]
 
-use std::collections::HashMap;
-
 use crate::global::*;
 use crate::hands;
 use crate::yahtzee_bonus_rules as bonus;
 
 /// Rules for dice used
-/// * Key: Minimum and maximum pip, e.g. (1, 6) for d6
-/// * Value: Frequency, e.g. 5 for key 6 in regular Yahtzee (5 d6)
-pub type DiceRules = HashMap<Die, Frequency>;
+#[derive(Debug, PartialEq)]
+pub struct DiceRules {
+    /// Short name for caching
+    pub short_name: char,
+    /// Actual rules
+    /// * Minimum and maximum pip, e.g. (1, 6) for d6
+    /// * Frequency, e.g. 5 for key 6 in regular Yahtzee (5 d6)
+    pub dice: Vec<(Die, Frequency)>,
+}
 /// Rules for reroll chips used, specify amount per player
 type ChipsRules = Chips;
 /// Function that calculates a score from a hand
 type ScoreFunction = fn(&HandSlice) -> Score;
 /// Rule for field on score card
-/// * First field: Name of field for user interaction
-/// * Second field: Function from hand to score
 pub struct SectionRule {
+    /// Name of field for user interaction
     pub name: String,
+    /// Function from hand to score
     pub function: ScoreFunction,
 }
 /// Rules in a section
@@ -37,6 +41,7 @@ pub struct USBonusRules {
 
 /// Rules for a game
 pub struct Rules {
+    pub short_name: char,
     pub dice: DiceRules,
     pub chips: ChipsRules,
     pub fields: FieldsRules,
@@ -170,18 +175,27 @@ fn build_lower_section_rules(extreme: bool) -> SectionRules {
 /// # Arguments
 /// * `extreme` - build for Extreme variant
 fn build_rules(extreme: bool) -> Rules {
+    let short_name = match extreme {
+        true => 'a',
+        _ => 'b',
+    };
+
     // Five d6
-    let mut dice_rules: DiceRules = [((1, 6), 5)].iter().cloned().collect();
+    let mut dice = DiceRules {
+        short_name: 'a',
+        dice: vec![((1, 6), 5)],
+    };
     if extreme {
+        dice.short_name = 'b';
         // One d10, starting at 0
-        dice_rules.insert((0, 9), 1);
+        dice.dice.push(((0, 9), 1));
     }
-    let chips_rules = if extreme { 3 } else { 0 };
+    let chips = if extreme { 3 } else { 0 };
 
     let us_fields_rules = build_upper_section_rules();
     let ls_fields_rules = build_lower_section_rules(extreme);
 
-    let us_bonus_rules = match extreme {
+    let us_bonus = match extreme {
         true => USBonusRules {
             threshold: 73,
             bonus: 45,
@@ -191,17 +205,18 @@ fn build_rules(extreme: bool) -> Rules {
             bonus: 35,
         },
     };
-    let yahtzee_rules = match extreme {
+    let yahtzee_bonus = match extreme {
         true => bonus::NONE,
         _ => bonus::FORCED_JOKER,
     };
 
     Rules {
-        dice: dice_rules,
-        chips: chips_rules,
+        short_name,
+        dice,
+        chips,
         fields: [us_fields_rules, ls_fields_rules],
-        us_bonus: us_bonus_rules,
-        yahtzee_bonus: yahtzee_rules,
+        us_bonus,
+        yahtzee_bonus,
     }
 }
 
@@ -213,7 +228,13 @@ mod tests {
     fn test_regular_rules() {
         let rules = build_rules(false);
 
-        assert_eq!(rules.dice, [((1, 6), 5)].iter().cloned().collect());
+        assert_eq!(
+            rules.dice,
+            DiceRules {
+                short_name: 'a',
+                dice: vec![((1, 6), 5)]
+            }
+        );
         assert_eq!(rules.chips, 0);
 
         assert_eq!(rules.fields[US].len(), US_LENGTH);
@@ -261,7 +282,10 @@ mod tests {
 
         assert_eq!(
             rules.dice,
-            [((1, 6), 5), ((0, 9), 1)].iter().cloned().collect()
+            DiceRules {
+                short_name: 'b',
+                dice: vec![((1, 6), 5), ((0, 9), 1)],
+            },
         );
         assert_eq!(rules.chips, 3);
 
