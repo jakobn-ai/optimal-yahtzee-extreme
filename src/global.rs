@@ -27,8 +27,6 @@ pub type Field = usize;
 pub const THROWS: i8 = 3;
 /// Index of upper section
 pub const US: usize = 0;
-/// Field count in upper section
-pub const US_LENGTH: usize = 6;
 /// Index of lower section
 pub const LS: usize = 1;
 /// Size of a Yahtzee
@@ -42,6 +40,9 @@ pub const SMALL_STRAIGHT_SCORE: Score = 30;
 pub const LARGE_STRAIGHT_SCORE: Score = 40;
 pub const YAHTZEE_SCORE: Score = 50;
 
+/// Field count in upper section
+#[cfg(test)]
+pub const US_LENGTH: usize = 6;
 /// Field count in lower section (regular only)
 #[cfg(test)]
 pub const LS_LENGTH: usize = 7;

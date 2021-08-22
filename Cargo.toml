@@ -6,3 +6,6 @@ edition = "2018"
 readme = "README.md"
 repository = "https://github.com/jakobn-ai/optimal-yahtzee-extreme"
 license = "GPL-3.0-or-later"
+
+[dependencies]
+rayon = "^1.5"

@@ -8,6 +8,8 @@ use crate::global::*;
 use crate::rules;
 use crate::yahtzee_bonus_rules as bonus;
 
+use rayon::prelude::*;
+
 /// Partial hand, specifying dice and pips
 type PartialHand = Vec<(Die, Pip)>;
 #[cfg(target_pointer_width = "64")]
@@ -166,7 +168,7 @@ fn choose_reroll(state: State, hand: PartialHand, rerolls: i8) -> RerollRecomm {
         )
     }
     let best = possible_hands
-        .iter()
+        .into_par_iter()
         .map(|partial_hand| HandChance {
             hand: partial_hand.to_vec(),
             expectation: if partial_hand.len() == dice_rules.values().sum::<Frequency>() as usize {
@@ -184,7 +186,7 @@ fn choose_reroll(state: State, hand: PartialHand, rerolls: i8) -> RerollRecomm {
                     .sum()
             },
         })
-        .reduce(|a, b| if a.expectation > b.expectation { a } else { b })
+        .reduce_with(|a, b| if a.expectation > b.expectation { a } else { b })
         .unwrap();
     RerollRecomm {
         hand: best.hand,
@@ -254,7 +256,7 @@ fn choose_field(state: State, have: PartialHand) -> FieldRecomm {
         };
     }
     available_fields = available_fields
-        .iter()
+        .into_par_iter()
         .map(|option| {
             let section = option.section;
             let field = option.field;
@@ -329,7 +331,7 @@ mod tests {
                 vec![],
                 vec![rules::SectionRule {
                     name: "Throw 1".to_string(),
-                    function: Box::new(|hand| (hand[0] - 1) as Score),
+                    function: |hand| (hand[0] - 1) as Score,
                 }],
             ],
             us_bonus: rules::USBonusRules {
@@ -381,7 +383,7 @@ mod tests {
         fn dummy_section_rule() -> rules::SectionRule {
             rules::SectionRule {
                 name: String::from("Dummy"),
-                function: Box::new(|_| 0),
+                function: |_| 0,
             }
         }
 
@@ -393,28 +395,30 @@ mod tests {
             dice: [((1, 2), 2)].iter().cloned().collect(),
             chips: 0,
             fields: [
-                ["Aces", "Twos"]
-                    .iter()
-                    .zip(1..3)
-                    .map(|(name, field)| rules::SectionRule {
-                        name: format!("Count and Add Only {}", name),
-                        function: Box::new(move |hand| hands::generic_upper_section(field, hand)),
-                    })
-                    .collect(),
                 vec![
-                    // Cannot clone boxed functions
+                    rules::SectionRule {
+                        name: String::from("Count and Add Only Aces"),
+                        function: |hand| hands::generic_upper_section(1, hand),
+                    },
+                    rules::SectionRule {
+                        name: String::from("Count and Add Only Twos"),
+                        function: |hand| hands::generic_upper_section(2, hand),
+                    },
+                ],
+                vec![
+                    // Cloning is more complicated
                     dummy_section_rule(),
                     dummy_section_rule(),
                     dummy_section_rule(),
                     dummy_section_rule(),
                     rules::SectionRule {
                         name: String::from("Chance"),
-                        function: Box::new(hands::total),
+                        function: hands::total,
                     },
                     // Yahtzee field
                     rules::SectionRule {
                         name: String::from("All Twos"),
-                        function: Box::new(|hand| if hands::total(hand) == 4 { 4 } else { 0 }),
+                        function: |hand| if hands::total(hand) == 4 { 4 } else { 0 },
                     },
                 ],
             ],

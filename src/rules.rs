@@ -14,7 +14,7 @@ pub type DiceRules = HashMap<Die, Frequency>;
 /// Rules for reroll chips used, specify amount per player
 type ChipsRules = Chips;
 /// Function that calculates a score from a hand
-type ScoreFunction = Box<dyn Fn(&HandSlice) -> Score>;
+type ScoreFunction = fn(&HandSlice) -> Score;
 /// Rule for field on score card
 /// * First field: Name of field for user interaction
 /// * Second field: Function from hand to score
@@ -46,104 +46,120 @@ pub struct Rules {
 
 /// Build upper section fields rules
 fn build_upper_section_rules() -> SectionRules {
-    ["Aces", "Twos", "Threes", "Fours", "Fives", "Sixes"]
-        .iter()
-        .zip(1..(US_LENGTH + 1) as Pip)
-        .map(|(name, field)| SectionRule {
-            name: format!("Count and Add Only {}", name),
-            function: Box::new(move |hand| hands::generic_upper_section(field, hand)),
-        })
-        .collect()
+    // Manual unroll because a closure would capture the running variable and could thus not be
+    // coerced into a function pointer (and that is with `move`).
+    // If you are reading this and know of a better way, please tell me.
+
+    vec![
+        SectionRule {
+            name: String::from("Count and Add Only Aces"),
+            function: |hand| hands::generic_upper_section(1, hand),
+        },
+        SectionRule {
+            name: String::from("Count and Add Only Twos"),
+            function: |hand| hands::generic_upper_section(2, hand),
+        },
+        SectionRule {
+            name: String::from("Count and Add Only Threes"),
+            function: |hand| hands::generic_upper_section(3, hand),
+        },
+        SectionRule {
+            name: String::from("Count and Add Only Fours"),
+            function: |hand| hands::generic_upper_section(4, hand),
+        },
+        SectionRule {
+            name: String::from("Count and Add Only Fives"),
+            function: |hand| hands::generic_upper_section(5, hand),
+        },
+        SectionRule {
+            name: String::from("Count and Add Only Sixes"),
+            function: |hand| hands::generic_upper_section(6, hand),
+        },
+    ]
 }
 
 /// Build lower section fields rules
 /// # Arguments
 /// * `extreme` - build for Extreme variant
 fn build_lower_section_rules(extreme: bool) -> SectionRules {
-    // Curry lower section fields requirements into generic_identical/generic_straight
-    // I cannot rid the feeling that this should be possible without calling `String::from` for
-    // every field name, but I have trouble mapping over this `Vec` afterwards because `Box` does
-    // not implement `Copy` and I could just `zip` as in `build_upper_section_rules`, but that
-    // would eliminate the comment function of these strings.
-    // If you are reading this and know of a better way, please tell me.
     let mut ls_fields_rules: SectionRules = vec![
         SectionRule {
             name: String::from("Three of a Kind"),
-            function: Box::new(|hand| hands::generic_identical(vec![3], hands::total, hand)),
+            function: |hand| hands::generic_identical(vec![3], hands::total, hand),
         },
         SectionRule {
             name: String::from("Four of a Kind"),
-            function: Box::new(|hand| hands::generic_identical(vec![4], hands::total, hand)),
+            function: |hand| hands::generic_identical(vec![4], hands::total, hand),
         },
     ];
     if extreme {
         ls_fields_rules.push(SectionRule {
             name: String::from("Two Pairs"),
-            function: Box::new(|hand| hands::generic_identical(vec![2, 2], hands::total, hand)),
+            function: |hand| hands::generic_identical(vec![2, 2], hands::total, hand),
         });
         ls_fields_rules.push(SectionRule {
             name: String::from("Three Pairs"),
-            function: Box::new(|hand| hands::generic_identical(vec![2, 2, 2], |_| 35, hand)),
+            function: |hand| hands::generic_identical(vec![2, 2, 2], |_| 35, hand),
         });
         ls_fields_rules.push(SectionRule {
             name: String::from("Two Triples"),
-            function: Box::new(|hand| hands::generic_identical(vec![3, 3], |_| 45, hand)),
+            function: |hand| hands::generic_identical(vec![3, 3], |_| 45, hand),
         });
     }
 
     ls_fields_rules.push(SectionRule {
         name: String::from("Full House"),
-        function: Box::new(|hand| hands::generic_identical(vec![2, 3], |_| FULL_HOUSE_SCORE, hand)),
+        function: |hand| hands::generic_identical(vec![2, 3], |_| FULL_HOUSE_SCORE, hand),
     });
     if extreme {
         ls_fields_rules.push(SectionRule {
             name: String::from("Grand Full House"),
-            function: Box::new(|hand| hands::generic_identical(vec![2, 4], |_| 45, hand)),
+            function: |hand| hands::generic_identical(vec![2, 4], |_| 45, hand),
         });
     }
 
     ls_fields_rules.push(SectionRule {
         name: String::from("Small Straight"),
-        function: Box::new(|hand| hands::generic_straight(4, SMALL_STRAIGHT_SCORE, hand)),
+        function: |hand| hands::generic_straight(4, SMALL_STRAIGHT_SCORE, hand),
     });
     ls_fields_rules.push(SectionRule {
         name: String::from("Large Straight"),
-        function: Box::new(|hand| hands::generic_straight(5, LARGE_STRAIGHT_SCORE, hand)),
+        function: |hand| hands::generic_straight(5, LARGE_STRAIGHT_SCORE, hand),
     });
     if extreme {
         ls_fields_rules.push(SectionRule {
             name: String::from("Highway"),
-            function: Box::new(|hand| hands::generic_straight(6, 50, hand)),
+            function: |hand| hands::generic_straight(6, 50, hand),
         });
     }
 
     ls_fields_rules.push(SectionRule {
         name: String::from("Yahtzee"),
-        function: Box::new(|hand| hands::generic_identical(vec![5], |_| YAHTZEE_SCORE, hand)),
+        function: |hand| hands::generic_identical(vec![5], |_| YAHTZEE_SCORE, hand),
     });
     if extreme {
         ls_fields_rules.push(SectionRule {
             name: String::from("Yahtzee Extreme"),
-            function: Box::new(|hand| hands::generic_identical(vec![6], |_| 75, hand)),
+            function: |hand| hands::generic_identical(vec![6], |_| 75, hand),
         });
         ls_fields_rules.push(SectionRule {
             name: String::from("10 or less"),
-            function: Box::new(|hand| if hands::total(hand) <= 10 { 40 } else { 0 }),
+            function: |hand| if hands::total(hand) <= 10 { 40 } else { 0 },
         });
         ls_fields_rules.push(SectionRule {
             name: String::from("33 or more"),
-            function: Box::new(|hand| if hands::total(hand) >= 33 { 40 } else { 0 }),
+            function: |hand| if hands::total(hand) >= 33 { 40 } else { 0 },
         });
     }
 
     ls_fields_rules.push(SectionRule {
         name: String::from("Chance"),
-        function: Box::new(hands::total),
+        function: hands::total,
     });
     if extreme {
         ls_fields_rules.push(SectionRule {
             name: String::from("Super Chance"),
-            function: Box::new(|hand| 2 * hands::total(hand)),
+            function: |hand| 2 * hands::total(hand),
         });
     }
 
