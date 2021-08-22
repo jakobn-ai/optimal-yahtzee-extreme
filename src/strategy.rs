@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use crate::global::*;
 use crate::rules;
-use crate::yahtzee_bonus_rules;
+use crate::yahtzee_bonus_rules as bonus;
 
 /// Partial hand, specifying dice and pips
 type PartialHand = Vec<(Die, Pip)>;
@@ -225,7 +225,7 @@ fn choose_field(state: State, have: PartialHand) -> FieldRecomm {
         })
         .collect();
     let yahtzee_bonus = state.scored_yahtzee
-        && rules.yahtzee_bonus as usize != yahtzee_bonus_rules::NONE as usize
+        && rules.yahtzee_bonus as usize != bonus::NONE as usize
         && (fields_rules[LS][YAHTZEE_INDEX].function)(&hand) > 0;
     if available_fields.len() == 1 {
         // End of game
@@ -272,7 +272,7 @@ fn choose_field(state: State, have: PartialHand) -> FieldRecomm {
                 new_state.scored_yahtzee = true
             }
 
-            let expectation = choose_reroll(new_state.clone(), vec![], THROWS).expectation;
+            let expectation = choose_reroll(new_state.clone(), vec![], THROWS - 1).expectation;
             FieldRecomm {
                 section,
                 field,
@@ -336,7 +336,7 @@ mod tests {
                 threshold: 2,
                 bonus: 0,
             },
-            yahtzee_bonus: yahtzee_bonus_rules::NONE,
+            yahtzee_bonus: bonus::NONE,
         };
 
         let ready_hand = vec![((1, 2), 2)];
