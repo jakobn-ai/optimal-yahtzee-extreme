@@ -1,8 +1,6 @@
 // due to additional bonus rules, TODO use
 #![allow(dead_code)]
 
-use std::collections::HashMap;
-
 use crate::global::*;
 
 /// Rules for Yahtzee bonus
@@ -19,20 +17,17 @@ pub type Rules = fn(&ScoreCard, Pip, Section, Field) -> (Score, Score);
 /// Score of a Yahtzee bonus
 pub const YAHTZEE_BONUS: Score = 100;
 
-/// Indices and scores of fields where Yahtzee might be used as a joker
+/// Scores of fields where Yahtzee might be used as a joker
 /// (Full House, Small & Large Straight)
-#[inline]
-// TODO HashMap necessary?
-fn joker_fields() -> HashMap<usize, Score> {
-    [
-        (2, FULL_HOUSE_SCORE),
-        (3, SMALL_STRAIGHT_SCORE),
-        (4, LARGE_STRAIGHT_SCORE),
-    ]
-    .iter()
-    .cloned()
-    .collect()
-}
+const JOKER_FIELDS: [Option<Score>; 7] = [
+    None,
+    None,
+    Some(FULL_HOUSE_SCORE),
+    Some(SMALL_STRAIGHT_SCORE),
+    Some(LARGE_STRAIGHT_SCORE),
+    None,
+    None,
+];
 
 /// Forced Joker rules, used in regular Yahtzee
 pub const FORCED_JOKER: Rules = |score_card, pip, section, field| {
@@ -45,9 +40,9 @@ pub const FORCED_JOKER: Rules = |score_card, pip, section, field| {
         _ => match score_card[US][pip as usize - 1] {
             // Upper section unused, not allowed to use, zeroing
             false => (0, 0),
-            _ => match joker_fields().get(&field) {
+            _ => match JOKER_FIELDS[field] {
                 // Joker
-                Some(&score) => (score, YAHTZEE_BONUS),
+                Some(score) => (score, YAHTZEE_BONUS),
                 // Count all
                 None => ((YAHTZEE_SIZE * pip) as Score, YAHTZEE_BONUS),
             },
@@ -62,8 +57,8 @@ pub const FREE_JOKER: Rules = |score_card, pip, section, field| {
             pip if pip as usize == field + 1 => ((YAHTZEE_SIZE * pip) as Score, YAHTZEE_BONUS),
             _ => (0, YAHTZEE_BONUS),
         },
-        _ => match joker_fields().get(&field) {
-            Some(&score) => match score_card[US][pip as usize - 1] {
+        _ => match JOKER_FIELDS[field] {
+            Some(score) => match score_card[US][pip as usize - 1] {
                 // Upper section unused, not allowed to use joker
                 false => (0, 0),
                 _ => (score, YAHTZEE_BONUS),
@@ -81,8 +76,8 @@ pub const ORIGINAL: Rules = |_, pip, section, field| {
             pip if pip as usize == field + 1 => ((YAHTZEE_SIZE * pip) as Score, 0),
             _ => (0, 0),
         },
-        _ => match joker_fields().get(&field) {
-            Some(&score) => (score, YAHTZEE_BONUS),
+        _ => match JOKER_FIELDS[field] {
+            Some(score) => (score, YAHTZEE_BONUS),
             None => ((YAHTZEE_SIZE * pip) as Score, YAHTZEE_BONUS),
         },
     }
@@ -97,7 +92,7 @@ pub const KNIFFEL: Rules = |score_card, pip, section, field| {
         },
         _ => match score_card[US][pip as usize - 1] {
             false => (0, 0),
-            _ => match joker_fields().get(&field) {
+            _ => match JOKER_FIELDS[field] {
                 // No joker
                 Some(_) => (0, 0),
                 None => ((YAHTZEE_SIZE * pip) as Score, YAHTZEE_SCORE),
