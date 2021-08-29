@@ -174,10 +174,22 @@ fn build_lower_section_rules(extreme: bool) -> SectionRules {
 /// Build rules for Yahtzee
 /// # Arguments
 /// * `extreme` - build for Extreme variant
-fn build_rules(extreme: bool) -> Rules {
+pub fn build_rules(extreme: bool, yahtzee_bonus: bonus::Rules) -> Rules {
+    if extreme && yahtzee_bonus as usize != bonus::NONE as usize {
+        panic!("Yahtzee Extreme with non-null bonus rules is undefined");
+    }
+
     let short_name = match extreme {
         true => 'a',
-        _ => 'b',
+        _ => {
+            (b'b'
+                + bonus::RULES
+                    .iter()
+                    .enumerate()
+                    .find(|(_, &rules)| rules as usize == yahtzee_bonus as usize)
+                    .unwrap_or_else(|| panic!("Rules at {:p} unknown", &yahtzee_bonus))
+                    .0 as u8) as char
+        }
     };
 
     // Five d6
@@ -205,10 +217,6 @@ fn build_rules(extreme: bool) -> Rules {
             bonus: 35,
         },
     };
-    let yahtzee_bonus = match extreme {
-        true => bonus::NONE,
-        _ => bonus::FORCED_JOKER,
-    };
 
     Rules {
         short_name,
@@ -226,60 +234,69 @@ mod tests {
 
     #[test]
     fn test_regular_rules() {
-        let rules = build_rules(false);
+        for (short_name, bonus_rules) in [
+            // Let's spell this out to make sure
+            ('b', bonus::FORCED_JOKER),
+            ('c', bonus::FREE_JOKER),
+            ('d', bonus::ORIGINAL),
+            ('e', bonus::KNIFFEL),
+            ('f', bonus::NONE),
+        ] {
+            let rules = build_rules(false, bonus_rules);
 
-        assert_eq!(rules.short_name, 'b');
-        assert_eq!(
-            rules.dice,
-            DiceRules {
-                short_name: 'b',
-                dice: vec![((1, 6), 5)]
-            }
-        );
-        assert_eq!(rules.chips, 0);
+            assert_eq!(rules.short_name, short_name);
+            assert_eq!(
+                rules.dice,
+                DiceRules {
+                    short_name: 'b',
+                    dice: vec![((1, 6), 5)]
+                }
+            );
+            assert_eq!(rules.chips, 0);
 
-        assert_eq!(rules.fields[US].len(), US_LENGTH);
-        assert_eq!(rules.fields[LS].len(), LS_LENGTH);
-        for (i, field) in [
-            vec![
-                (vec![1, 1, 1, 1, 2], 4),
-                (vec![1, 2, 2, 2, 2], 8),
-                (vec![1, 3, 3, 3, 3], 12),
-                (vec![1, 4, 4, 4, 4], 16),
-                (vec![1, 5, 5, 5, 5], 20),
-                (vec![1, 6, 6, 6, 6], 24),
-            ],
-            vec![
-                (vec![1, 1, 1, 2, 3], 8),
-                (vec![1, 1, 1, 1, 2], 6),
-                (vec![1, 1, 1, 2, 2], 25),
-                (vec![1, 2, 3, 4, 6], 30),
-                (vec![1, 2, 3, 4, 5], 40),
-                (vec![1, 1, 1, 1, 1], 50),
-                (vec![1, 1, 1, 1, 2], 6),
-            ],
-        ]
-        .iter()
-        .enumerate()
-        {
-            for (j, (hand, score)) in field.iter().enumerate() {
-                assert_eq!((rules.fields[i][j].function)(hand), *score);
+            assert_eq!(rules.fields[US].len(), US_LENGTH);
+            assert_eq!(rules.fields[LS].len(), LS_LENGTH);
+            for (i, field) in [
+                vec![
+                    (vec![1, 1, 1, 1, 2], 4),
+                    (vec![1, 2, 2, 2, 2], 8),
+                    (vec![1, 3, 3, 3, 3], 12),
+                    (vec![1, 4, 4, 4, 4], 16),
+                    (vec![1, 5, 5, 5, 5], 20),
+                    (vec![1, 6, 6, 6, 6], 24),
+                ],
+                vec![
+                    (vec![1, 1, 1, 2, 3], 8),
+                    (vec![1, 1, 1, 1, 2], 6),
+                    (vec![1, 1, 1, 2, 2], 25),
+                    (vec![1, 2, 3, 4, 6], 30),
+                    (vec![1, 2, 3, 4, 5], 40),
+                    (vec![1, 1, 1, 1, 1], 50),
+                    (vec![1, 1, 1, 1, 2], 6),
+                ],
+            ]
+            .iter()
+            .enumerate()
+            {
+                for (j, (hand, score)) in field.iter().enumerate() {
+                    assert_eq!((rules.fields[i][j].function)(hand), *score);
+                }
             }
+
+            assert_eq!(
+                rules.us_bonus,
+                USBonusRules {
+                    threshold: 63,
+                    bonus: 35,
+                }
+            );
+            assert_eq!(rules.yahtzee_bonus as usize, bonus_rules as usize);
         }
-
-        assert_eq!(
-            rules.us_bonus,
-            USBonusRules {
-                threshold: 63,
-                bonus: 35,
-            }
-        );
-        assert_eq!(rules.yahtzee_bonus as usize, bonus::FORCED_JOKER as usize);
     }
 
     #[test]
     fn test_extreme_rules() {
-        let rules = build_rules(true);
+        let rules = build_rules(true, bonus::NONE);
 
         assert_eq!(rules.short_name, 'a');
         assert_eq!(

@@ -106,6 +106,8 @@ pub const NONE: Rules = |_, _, _, _| {
     panic!("Rules NONE should not be applied");
 };
 
+pub const RULES: [Rules; 5] = [FORCED_JOKER, FREE_JOKER, ORIGINAL, KNIFFEL, NONE];
+
 #[cfg(test)]
 mod tests {
     use super::*;
