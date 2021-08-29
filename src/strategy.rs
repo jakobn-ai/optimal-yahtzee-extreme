@@ -104,7 +104,6 @@ impl Clone for FieldRecomm {
 /// * `rules` - dice rules
 /// # Returns
 /// Hash map of all reachable hands and probabilities, hands sorted
-// TODO is this hashed or looped (in which case we should use an explicit hash map)?
 // TODO cache on disk
 #[cached(
     key = "String",

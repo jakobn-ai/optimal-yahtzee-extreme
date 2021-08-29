@@ -11,4 +11,7 @@ license = "GPL-3.0-or-later"
 cached = "^0.25"
 rayon = "^1.5"
 
-# TODO LTO & PGO
+[profile.release]
+lto = true
+
+# TODO PGO
