@@ -13,6 +13,8 @@ use rayon::prelude::*;
 
 /// Partial hand, specifying dice and pips
 type PartialHand = Vec<(Die, Pip)>;
+/// Partial hand but it makes Clippy happy
+type PartialHandSlice = [(Die, Pip)];
 #[cfg(target_pointer_width = "64")]
 type ArchFloat = f64;
 #[cfg(target_pointer_width = "32")]
@@ -21,6 +23,14 @@ type ArchFloat = f32;
 type Probability = ArchFloat;
 /// Expectation value
 type Expectation = ArchFloat;
+
+/// Compact formatting for caching
+fn compact_fmt(hand: &PartialHandSlice) -> String {
+    hand.iter()
+        .map(|((min, max), pip)| format!("{},{},{}", min, max, pip))
+        .reduce(|a, b| format!("{},{}", a, b))
+        .unwrap_or_else(|| String::from(""))
+}
 
 /// State with everything relevant to strategy
 #[derive(Debug)]
@@ -39,6 +49,25 @@ impl Clone for State {
             scored_yahtzee: self.scored_yahtzee,
             chips: self.chips,
         }
+    }
+}
+
+impl State {
+    fn compact_fmt(&self) -> String {
+        format!(
+            "{},{}{},{}",
+            format!("{},{}", self.score[0], self.score[1]),
+            self.used
+                .iter()
+                .map(|section| section
+                    .iter()
+                    .map(|&field| field as i8)
+                    .fold(String::from(""), |a, b| format!("{}{}", a, b)))
+                .reduce(|a, b| format!("{},{}", a, b))
+                .unwrap(),
+            self.scored_yahtzee as i8,
+            self.chips,
+        )
     }
 }
 
@@ -76,11 +105,10 @@ impl Clone for FieldRecomm {
 /// # Returns
 /// Hash map of all reachable hands and probabilities, hands sorted
 // TODO is this hashed or looped (in which case we should use an explicit hash map)?
-// TODO compact formatting
 // TODO cache on disk
 #[cached(
     key = "String",
-    convert = r#"{ format!("{:?}{:?}", have, rules.short_name ) }"#
+    convert = r#"{ format!("{}{}", compact_fmt(&have), rules.short_name ) }"#
 )]
 fn probability_to_roll(
     have: PartialHand,
@@ -100,15 +128,15 @@ fn probability_to_roll(
 
     // Calculate all possible hands
     let mut hands: Vec<PartialHand> = vec![have];
-    for ((min, max), frequency) in &leftover {
-        for _ in 0..*frequency {
+    for &((min, max), frequency) in &leftover {
+        for _ in 0..frequency {
             hands = hands
                 .iter()
                 .flat_map(|hand| {
-                    (*min..(*max + 1)).map(move |pip| {
+                    (min..(max + 1)).map(move |pip| {
                         // Append possible pip to hand
                         let mut new_hand = hand.clone();
-                        new_hand.push(((*min, *max), pip));
+                        new_hand.push(((min, max), pip));
                         new_hand
                     })
                 })
@@ -125,7 +153,7 @@ fn probability_to_roll(
     // Sort hands and add up probabilities
     let mut probabilities = HashMap::with_hasher(RandomState::new());
     for mut hand in hands {
-        hand.sort_unstable_by_key(|(_, pip)| *pip);
+        hand.sort_unstable_by_key(|&(_, pip)| pip);
         *probabilities.entry(hand).or_insert(0.0) += probability_per_hand;
     }
     probabilities
@@ -141,7 +169,7 @@ fn probability_to_roll(
 /// Reroll recommendation - see architecture of structure above
 #[cached(
     key = "String",
-    convert = r#"{ format!("{:?}{:?}{:?}{:?}", state, hand, rerolls, rules.short_name) }"#
+    convert = r#"{ format!("{:?}{}{}{}", state.compact_fmt(), rules.short_name, compact_fmt(&hand), rerolls) }"#
 )]
 fn choose_reroll(
     state: State,
@@ -231,12 +259,12 @@ fn choose_reroll(
 /// Field recommendation - see architecture of structure above
 #[cached(
     key = "String",
-    convert = r#"{ format!("{:?}{:?}{:?}", state, have, rules.short_name) }"#
+    convert = r#"{ format!("{}{}{}", state.compact_fmt(), rules.short_name, compact_fmt(&have)) }"#
 )]
 fn choose_field(state: State, have: PartialHand, rules: &rules::Rules) -> FieldRecomm {
     let fields_rules = &rules.fields;
 
-    let hand: Hand = have.iter().map(|(_, pip)| *pip).collect();
+    let hand: Hand = have.iter().map(|&(_, pip)| pip).collect();
     let mut available_fields: Vec<FieldRecomm> = state
         .used
         .iter()
@@ -327,6 +355,26 @@ fn choose_field(state: State, have: PartialHand, rules: &rules::Rules) -> FieldR
 mod tests {
     use super::*;
     use crate::hands;
+
+    #[test]
+    fn test_compact_fmt_partial_hand() {
+        assert_eq!(compact_fmt(&vec![]), "");
+        assert_eq!(compact_fmt(&vec![((1, 2), 1), ((1, 2), 2)]), "1,2,1,1,2,2");
+    }
+
+    #[test]
+    fn test_compact_fmt_state() {
+        assert_eq!(
+            State {
+                score: [0, 0],
+                used: [vec![false], vec![false, false]],
+                scored_yahtzee: false,
+                chips: 0,
+            }
+            .compact_fmt(),
+            "0,0,0,000,0",
+        );
+    }
 
     #[test]
     fn test_probability_to_roll() {

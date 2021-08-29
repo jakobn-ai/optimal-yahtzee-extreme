@@ -182,11 +182,11 @@ fn build_rules(extreme: bool) -> Rules {
 
     // Five d6
     let mut dice = DiceRules {
-        short_name: 'a',
+        short_name: 'b',
         dice: vec![((1, 6), 5)],
     };
     if extreme {
-        dice.short_name = 'b';
+        dice.short_name = 'a';
         // One d10, starting at 0
         dice.dice.push(((0, 9), 1));
     }
@@ -228,10 +228,11 @@ mod tests {
     fn test_regular_rules() {
         let rules = build_rules(false);
 
+        assert_eq!(rules.short_name, 'b');
         assert_eq!(
             rules.dice,
             DiceRules {
-                short_name: 'a',
+                short_name: 'b',
                 dice: vec![((1, 6), 5)]
             }
         );
@@ -280,10 +281,11 @@ mod tests {
     fn test_extreme_rules() {
         let rules = build_rules(true);
 
+        assert_eq!(rules.short_name, 'a');
         assert_eq!(
             rules.dice,
             DiceRules {
-                short_name: 'b',
+                short_name: 'a',
                 dice: vec![((1, 6), 5), ((0, 9), 1)],
             },
         );
