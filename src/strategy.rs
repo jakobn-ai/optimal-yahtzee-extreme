@@ -285,7 +285,7 @@ fn choose_field(state: State, have: PartialHand, rules: &rules::Rules) -> FieldR
         })
         .collect();
     let yahtzee_bonus = state.scored_yahtzee
-        && rules.yahtzee_bonus as usize != bonus::NONE as usize
+        && rules.yahtzee_bonus.short_name != bonus::NONE.short_name
         && (fields_rules[LS][YAHTZEE_INDEX].function)(&hand) > 0;
     if available_fields.len() == 1 {
         // End of game
@@ -295,7 +295,7 @@ fn choose_field(state: State, have: PartialHand, rules: &rules::Rules) -> FieldR
 
         let mut final_state = state.clone();
         let (score, bonus) = match yahtzee_bonus {
-            true => (rules.yahtzee_bonus)(&state.used, hand[0], section, field),
+            true => (rules.yahtzee_bonus.rules)(&state.used, hand[0], section, field),
             _ => ((fields_rules[section][field].function)(&hand), 0),
         };
         final_state.score[section] += score;
@@ -320,7 +320,7 @@ fn choose_field(state: State, have: PartialHand, rules: &rules::Rules) -> FieldR
             let field = option.field;
 
             let (score, bonus) = match yahtzee_bonus {
-                true => (rules.yahtzee_bonus)(&state.used, hand[0], section, field),
+                true => (rules.yahtzee_bonus.rules)(&state.used, hand[0], section, field),
                 _ => ((fields_rules[section][field].function)(&hand), 0),
             };
             let mut new_state = state.clone();
@@ -524,7 +524,10 @@ mod tests {
                 threshold: 1,
                 bonus: 1,
             },
-            yahtzee_bonus: |_, _, _, _| (4, 1),
+            yahtzee_bonus: bonus::Rules {
+                short_name: 'z',
+                rules: |_, _, _, _| (4, 1),
+            },
         };
 
         let pair_of_twos = [((1, 2), 2)].repeat(2);

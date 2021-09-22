@@ -175,30 +175,22 @@ fn build_lower_section_rules(extreme: bool) -> SectionRules {
 /// # Arguments
 /// * `extreme` - build for Extreme variant
 pub fn build_rules(extreme: bool, yahtzee_bonus: bonus::Rules) -> Rules {
-    if extreme && yahtzee_bonus as usize != bonus::NONE as usize {
+    if extreme && yahtzee_bonus.short_name != bonus::NONE.short_name {
         panic!("Yahtzee Extreme with non-null bonus rules is undefined");
     }
 
     let short_name = match extreme {
-        true => 'a',
-        _ => {
-            (b'b'
-                + bonus::RULES
-                    .iter()
-                    .enumerate()
-                    .find(|(_, &rules)| rules as usize == yahtzee_bonus as usize)
-                    .unwrap_or_else(|| panic!("Rules at {:p} unknown", &yahtzee_bonus))
-                    .0 as u8) as char
-        }
+        false => yahtzee_bonus.short_name,
+        true => 'f',
     };
 
     // Five d6
     let mut dice = DiceRules {
-        short_name: 'b',
+        short_name: 'a',
         dice: vec![((1, 6), 5)],
     };
     if extreme {
-        dice.short_name = 'a';
+        dice.short_name = 'b';
         // One d10, starting at 0
         dice.dice.push(((0, 9), 1));
     }
@@ -235,12 +227,11 @@ mod tests {
     #[test]
     fn test_regular_rules() {
         for (short_name, bonus_rules) in [
-            // Let's spell this out to make sure
-            ('b', bonus::FORCED_JOKER),
-            ('c', bonus::FREE_JOKER),
-            ('d', bonus::ORIGINAL),
-            ('e', bonus::KNIFFEL),
-            ('f', bonus::NONE),
+            ('a', bonus::FORCED_JOKER),
+            ('b', bonus::FREE_JOKER),
+            ('c', bonus::ORIGINAL),
+            ('d', bonus::KNIFFEL),
+            ('e', bonus::NONE),
         ] {
             let rules = build_rules(false, bonus_rules);
 
@@ -248,7 +239,7 @@ mod tests {
             assert_eq!(
                 rules.dice,
                 DiceRules {
-                    short_name: 'b',
+                    short_name: 'a',
                     dice: vec![((1, 6), 5)]
                 }
             );
@@ -290,7 +281,7 @@ mod tests {
                     bonus: 35,
                 }
             );
-            assert_eq!(rules.yahtzee_bonus as usize, bonus_rules as usize);
+            assert_eq!(rules.yahtzee_bonus.short_name, short_name);
         }
     }
 
@@ -298,11 +289,11 @@ mod tests {
     fn test_extreme_rules() {
         let rules = build_rules(true, bonus::NONE);
 
-        assert_eq!(rules.short_name, 'a');
+        assert_eq!(rules.short_name, 'f');
         assert_eq!(
             rules.dice,
             DiceRules {
-                short_name: 'a',
+                short_name: 'b',
                 dice: vec![((1, 6), 5), ((0, 9), 1)],
             },
         );
@@ -353,6 +344,6 @@ mod tests {
                 bonus: 45
             }
         );
-        assert_eq!(rules.yahtzee_bonus as usize, bonus::NONE as usize);
+        assert_eq!(rules.yahtzee_bonus.short_name, bonus::NONE.short_name);
     }
 }
