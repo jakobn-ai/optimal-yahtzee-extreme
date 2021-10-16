@@ -33,7 +33,6 @@ fn compact_fmt(hand: &PartialHandSlice) -> String {
 }
 
 /// State with everything relevant to strategy
-#[derive(Debug)]
 struct State {
     score: [Score; 2],
     used: ScoreCard,
@@ -145,7 +144,7 @@ fn probability_to_roll(
 
     // Calculate total possible hands by multiplication
     let total = leftover.iter().fold(1, |total, ((min, max), frequency)| {
-        total * (max - min + 1) * frequency
+        total * i32::pow((max - min + 1) as i32, *frequency as u32)
     });
     let probability_per_hand = 1.0 / total as Probability;
 
@@ -377,20 +376,33 @@ mod tests {
 
     #[test]
     fn test_probability_to_roll() {
-        // play with three coins, two left to throw
-        // comparing probabilities for equality is okay when comparing 1/4 or 1/2
+        // play with four coins, three left to throw
+        // comparing probabilities for equality is okay when comparing eighths
         assert_eq!(
             probability_to_roll(
                 vec![((1, 2), 1)],
                 &rules::DiceRules {
                     short_name: 'w',
-                    dice: vec![((1, 2), 3)]
+                    dice: vec![((1, 2), 4)]
                 }
             ),
             [
-                (vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 1)], 0.25),
-                (vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 2)], 0.5),
-                (vec![((1, 2), 1), ((1, 2), 2), ((1, 2), 2)], 0.25)
+                (
+                    vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 1), ((1, 2), 1)],
+                    0.125
+                ),
+                (
+                    vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 1), ((1, 2), 2)],
+                    0.375
+                ),
+                (
+                    vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 2), ((1, 2), 2)],
+                    0.375
+                ),
+                (
+                    vec![((1, 2), 1), ((1, 2), 2), ((1, 2), 2), ((1, 2), 2)],
+                    0.125
+                ),
             ]
             .iter()
             .cloned()
