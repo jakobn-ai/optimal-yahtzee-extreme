@@ -312,7 +312,7 @@ fn choose_field(state: State, have: PartialHand, rules: &rules::Rules) -> FieldR
             expectation,
         };
     }
-    available_fields = available_fields
+    available_fields
         .into_par_iter()
         .map(|option| {
             let section = option.section;
@@ -340,11 +340,7 @@ fn choose_field(state: State, have: PartialHand, rules: &rules::Rules) -> FieldR
                 expectation,
             }
         })
-        .collect();
-    // Return choice with best expectation value
-    available_fields
-        .iter()
-        .reduce(|a, b| if a.expectation > b.expectation { a } else { b })
+        .reduce_with(|a, b| if a.expectation > b.expectation { a } else { b })
         .unwrap()
         .clone()
 }
