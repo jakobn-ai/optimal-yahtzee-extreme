@@ -342,7 +342,6 @@ fn choose_field(state: State, have: PartialHand, rules: &rules::Rules) -> FieldR
         })
         .reduce_with(|a, b| if a.expectation > b.expectation { a } else { b })
         .unwrap()
-        .clone()
 }
 
 #[cfg(test)]
