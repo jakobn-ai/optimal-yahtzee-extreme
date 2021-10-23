@@ -8,8 +8,9 @@ repository = "https://github.com/jakobn-ai/optimal-yahtzee-extreme"
 license = "GPL-3.0-or-later"
 
 [dependencies]
-cached = "^0.25"
-rayon = "^1.5"
+cached = "0.26"
+once_cell = "1.8"
+rayon = "1.5"
 
 [profile.release]
 lto = true

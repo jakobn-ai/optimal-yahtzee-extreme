@@ -9,7 +9,7 @@ use crate::rules;
 use crate::yahtzee_bonus_rules as bonus;
 
 use cached::proc_macro::cached;
-use rayon::prelude::*;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 /// Partial hand, specifying dice and pips
 type PartialHand = Vec<(Die, Pip)>;
@@ -71,18 +71,25 @@ impl State {
 }
 
 /// Recommendation for what to keep for rerolling
-#[derive(Clone)]
-struct RerollRecomm {
+#[derive(Clone, Serialize, Deserialize)]
+pub struct RerollRecomm {
+    /// Hand to keep
     hand: PartialHand,
+    /// State - passed on unchanged
     state: State,
+    /// Expectation value when keeping this hand
     expectation: Expectation,
 }
 
 /// Recommendation for which field to use for score
 struct FieldRecomm {
+    /// Section to choose
     section: Section,
+    /// Field to choose
     field: Field,
+    /// State after choosing this field
     state: State,
+    /// Expectation value when choosing this field
     expectation: Expectation,
 }
 
@@ -103,7 +110,6 @@ impl Clone for FieldRecomm {
 /// * `rules` - dice rules
 /// # Returns
 /// Hash map of all reachable hands and probabilities, hands sorted
-// TODO cache on disk
 #[cached(
     key = "String",
     convert = r#"{ format!("{}{}", compact_fmt(&have), rules.short_name ) }"#
@@ -342,6 +348,71 @@ fn choose_field(state: State, have: PartialHand, rules: &rules::Rules) -> FieldR
         })
         .reduce_with(|a, b| if a.expectation > b.expectation { a } else { b })
         .unwrap()
+}
+
+/// Logic for dumping and restoring caches (necessary parts only, no disk; see crate::caching)
+pub mod persistent_caches {
+    use super::*;
+
+    use cached::Cached;
+    use once_cell::sync::Lazy;
+    use rayon::join;
+
+    /// Caches to be stored
+    #[derive(Serialize, Deserialize)]
+    pub struct Caches {
+        probability_to_roll: HashMap<String, HashMap<PartialHand, Probability>>,
+        choose_reroll: HashMap<String, RerollRecomm>,
+        choose_field: HashMap<String, FieldRecomm>,
+    }
+
+    fn dump_caches() -> Caches {
+        macro_rules! dump {
+            ($cache:ident) => {
+                Lazy::force(&$cache).lock().unwrap().get_store().clone()
+            };
+        }
+        let (probability_to_roll, (choose_reroll, choose_field)) = join(
+            || dump!(PROBABILITY_TO_ROLL),
+            || join(|| dump!(CHOOSE_REROLL), || dump!(CHOOSE_FIELD)),
+        );
+        Caches {
+            probability_to_roll,
+            choose_reroll,
+            choose_field,
+        }
+    }
+
+    fn populate_caches(caches: Caches) {
+        macro_rules! populate {
+            ($cache:ident, $dump:expr) => {
+                let mut locked = Lazy::force(&$cache).lock().unwrap();
+                for (k, v) in $dump {
+                    locked.cache_set(k, v);
+                }
+            };
+        }
+        let (probability_to_roll, choose_reroll, choose_field) = (
+            caches.probability_to_roll,
+            caches.choose_reroll,
+            caches.choose_field,
+        );
+        join(
+            || {
+                populate!(PROBABILITY_TO_ROLL, probability_to_roll);
+            },
+            || {
+                join(
+                    || {
+                        populate!(CHOOSE_REROLL, choose_reroll);
+                    },
+                    || {
+                        populate!(CHOOSE_FIELD, choose_field);
+                    },
+                )
+            },
+        );
+    }
 }
 
 #[cfg(test)]
