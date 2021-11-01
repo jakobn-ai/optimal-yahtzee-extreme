@@ -226,13 +226,8 @@ mod tests {
 
     #[test]
     fn test_regular_rules() {
-        for (short_name, bonus_rules) in [
-            ('a', bonus::FORCED_JOKER),
-            ('b', bonus::FREE_JOKER),
-            ('c', bonus::ORIGINAL),
-            ('d', bonus::KNIFFEL),
-            ('e', bonus::NONE),
-        ] {
+        for bonus_rules in bonus::ALL_VARIANTS {
+            let short_name = bonus_rules.short_name;
             let rules = build_rules(false, bonus_rules);
 
             assert_eq!(rules.short_name, short_name);

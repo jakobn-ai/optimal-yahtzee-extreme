@@ -37,6 +37,9 @@ const JOKER_FIELDS: [Option<Score>; 7] = [
     None,
 ];
 
+/// Array of all variants
+pub const ALL_VARIANTS: [Rules; 5] = [FORCED_JOKER, FREE_JOKER, ORIGINAL, KNIFFEL, NONE];
+
 /// Forced Joker rules, used in regular Yahtzee
 pub const FORCED_JOKER: Rules = Rules {
     short_name: 'a',
