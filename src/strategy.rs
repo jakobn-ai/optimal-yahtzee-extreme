@@ -1,7 +1,6 @@
 // to quiet warnings, TODO use
 #![allow(dead_code)]
 
-use std::collections::hash_map::RandomState;
 use std::collections::HashMap;
 
 use crate::global::*;
@@ -131,7 +130,7 @@ fn probability_to_roll(
     }
 
     // Calculate all possible hands
-    let mut hands: Vec<PartialHand> = vec![have];
+    let mut hands = vec![have];
     for &((min, max), frequency) in &leftover {
         for _ in 0..frequency {
             hands = hands
@@ -155,7 +154,7 @@ fn probability_to_roll(
     let probability_per_hand = 1.0 / total as Probability;
 
     // Sort hands and add up probabilities
-    let mut probabilities = HashMap::with_hasher(RandomState::new());
+    let mut probabilities = HashMap::new();
     for mut hand in hands {
         hand.sort_unstable_by_key(|&(_, pip)| pip);
         *probabilities.entry(hand).or_insert(0.0) += probability_per_hand;
@@ -269,7 +268,7 @@ fn choose_field(state: State, have: PartialHand, rules: &rules::Rules) -> FieldR
     let fields_rules = &rules.fields;
 
     let hand: Hand = have.iter().map(|&(_, pip)| pip).collect();
-    let mut available_fields: Vec<FieldRecomm> = state
+    let mut available_fields: Vec<_> = state
         .used
         .iter()
         .enumerate()

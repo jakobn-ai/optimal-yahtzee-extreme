@@ -226,9 +226,9 @@ mod tests {
 
     #[test]
     fn test_regular_rules() {
-        for bonus_rules in bonus::ALL_VARIANTS {
-            let short_name = bonus_rules.short_name;
-            let rules = build_rules(false, bonus_rules);
+        for yahtzee_bonus in bonus::ALL_VARIANTS {
+            let short_name = yahtzee_bonus.short_name;
+            let rules = build_rules(false, yahtzee_bonus);
 
             assert_eq!(rules.short_name, short_name);
             assert_eq!(
