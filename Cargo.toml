@@ -8,9 +8,20 @@ repository = "https://github.com/jakobn-ai/optimal-yahtzee-extreme"
 license = "GPL-3.0-or-later"
 
 [dependencies]
+anyhow = "1.0"
 cached = "0.26"
+flate2 = "1.0"
 once_cell = "1.8"
 rayon = "1.5"
+semver = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Use system zlib on
+# - Android and iOS: provided by system and included in any toolchain (not yet tested)
+# - s390x: use hardware acceleration (suspected, not tested)
+[target.'cfg(any(android, ios, s390x))'.dependencies]
+flate2 = { version = "1.0", features = ["zlib"] }
 
 [profile.release]
 lto = true
