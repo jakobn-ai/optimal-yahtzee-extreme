@@ -15,6 +15,7 @@ use crate::global::*;
 pub type RulesFn = fn(&ScoreCard, Pip, Section, Field) -> (Score, Score);
 
 /// Rules for Yahtzee bonus
+#[derive(Clone)]
 pub struct Rules {
     /// Short name for caching
     pub short_name: char,

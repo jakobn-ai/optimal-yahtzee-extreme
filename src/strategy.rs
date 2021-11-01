@@ -1,6 +1,3 @@
-// to quiet warnings, TODO use
-#![allow(dead_code)]
-
 use std::collections::HashMap;
 
 use crate::global::*;
@@ -32,11 +29,11 @@ fn compact_fmt(hand: &PartialHandSlice) -> String {
 }
 
 /// State with everything relevant to strategy
-struct State {
-    score: [Score; 2],
-    used: ScoreCard,
-    scored_yahtzee: bool,
-    chips: Chips,
+pub struct State {
+    pub score: [Score; 2],
+    pub used: ScoreCard,
+    pub scored_yahtzee: bool,
+    pub chips: Chips,
 }
 
 impl Clone for State {
@@ -174,7 +171,7 @@ fn probability_to_roll(
     key = "String",
     convert = r#"{ format!("{:?}{}{}{}", state.compact_fmt(), rules.short_name, compact_fmt(&hand), rerolls) }"#
 )]
-fn choose_reroll(
+pub fn choose_reroll(
     state: State,
     hand: PartialHand,
     rerolls: i8,
