@@ -1,6 +1,3 @@
-// to quiet warnings, TODO use
-#![allow(dead_code)]
-
 use crate::global::*;
 use crate::hands;
 use crate::yahtzee_bonus_rules as bonus;

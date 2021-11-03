@@ -3,12 +3,12 @@ use crate::rules;
 use crate::strategy::{self, persistent_caches};
 use crate::yahtzee_bonus_rules as bonus;
 
-use std::fs::{read, write};
-use std::io::{Read, Write};
+use std::fs::{write, File};
+use std::io::{BufReader, Read, Write};
 use std::iter::repeat;
 
-use anyhow::{anyhow, Result};
-use flate2::{read::DeflateDecoder, write::DeflateEncoder, Compression};
+use anyhow::{bail, Result};
+use flate2::{bufread::DeflateDecoder, write::DeflateEncoder, Compression};
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use serde_json::{from_slice, to_vec};
@@ -20,6 +20,13 @@ struct Caches {
     version: String,
     /// Actual caches
     caches: persistent_caches::Caches,
+}
+
+/// Retrieve version information for compatibility
+macro_rules! version {
+    () => {
+        env!("CARGO_PKG_VERSION", "must build with cargo")
+    };
 }
 
 /// Populate all caches by (transitively) calling all cachable functions with their entire domains
@@ -49,7 +56,7 @@ fn warm_up_caches() {
 /// Result - serialization, I/O can fail
 fn dump_caches(filename: &str) -> Result<()> {
     let caches = Caches {
-        version: String::from(env!("CARGO_PKG_VERSION", "must build with cargo")),
+        version: String::from(version!()),
         caches: persistent_caches::dump_caches(),
     };
     let serialized = to_vec(&caches)?;
@@ -69,4 +76,33 @@ fn pre_cache(filename: &str) -> Result<()> {
     dump_caches(filename)
 }
 
-// TODO what happens when deserializing f64's on a f32 target?
+/// Restore caches from file
+/// # Arguments
+/// * `filename` - to restore from
+/// # Returns
+/// Result - deserialization, I/O can fail
+// TODO use
+#[allow(dead_code)]
+fn restore_caches(filename: &str) -> Result<()> {
+    let file = File::open(filename)?;
+    let reader = BufReader::new(file);
+    let mut deflater = DeflateDecoder::new(reader);
+    let mut serialized = Vec::new();
+    deflater.read_to_end(&mut serialized)?;
+    let caches: Caches = from_slice(&serialized)?;
+
+    let version = version!();
+    let mut req = VersionReq::parse(&format!("~{}", caches.version))?;
+    // Minor releases are forwards and backwards compatible
+    req.comparators[0].patch = Some(0);
+    if !req.matches(&Version::parse(version)?) {
+        bail!(
+            "Caches were created on version {}, this is version {}",
+            caches.version,
+            version
+        );
+    }
+
+    persistent_caches::populate_caches(caches.caches);
+    Ok(())
+}

@@ -1,6 +1,3 @@
-// due to additional bonus rules, TODO use
-#![allow(dead_code)]
-
 use crate::global::*;
 
 /// Rules function for Yahtzee bonus

@@ -6,7 +6,7 @@ use crate::yahtzee_bonus_rules as bonus;
 
 use cached::proc_macro::cached;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// Partial hand, specifying dice and pips
 type PartialHand = Vec<(Die, Pip)>;
@@ -30,7 +30,7 @@ fn compact_fmt(hand: &PartialHandSlice) -> String {
 }
 
 /// State with everything relevant to strategy
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct State {
     pub score: [Score; 2],
     pub used: ScoreCard,
@@ -80,7 +80,7 @@ pub struct RerollRecomm {
 }
 
 /// Recommendation for which field to use for score
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct FieldRecomm {
     /// Section to choose
     section: Section,
@@ -382,9 +382,7 @@ pub mod persistent_caches {
         }
     }
 
-    // TODO use
-    #[allow(dead_code)]
-    fn populate_caches(caches: Caches) {
+    pub fn populate_caches(caches: Caches) {
         macro_rules! populate {
             ($cache:ident, $dump:expr) => {
                 let mut locked = Lazy::force(&$cache).lock().unwrap();
