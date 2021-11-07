@@ -69,9 +69,7 @@ fn dump_caches(filename: &str) -> Result<()> {
 
 /// Populate all caches and dump to specified file
 /// See `dump_caches` for signature
-// TODO use
-#[allow(dead_code)]
-fn pre_cache(filename: &str) -> Result<()> {
+pub fn pre_cache(filename: &str) -> Result<()> {
     warm_up_caches();
     dump_caches(filename)
 }
@@ -81,9 +79,7 @@ fn pre_cache(filename: &str) -> Result<()> {
 /// * `filename` - to restore from
 /// # Returns
 /// Result - deserialization, I/O can fail
-// TODO use
-#[allow(dead_code)]
-fn restore_caches(filename: &str) -> Result<()> {
+pub fn restore_caches(filename: &str) -> Result<()> {
     let file = File::open(filename)?;
     let reader = BufReader::new(file);
     let mut deflater = DeflateDecoder::new(reader);
@@ -106,3 +102,5 @@ fn restore_caches(filename: &str) -> Result<()> {
     persistent_caches::populate_caches(caches.caches);
     Ok(())
 }
+
+// TODO tests

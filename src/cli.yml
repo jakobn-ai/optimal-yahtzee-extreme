@@ -1,0 +1,10 @@
+name: optimal-yahtzee-extreme
+args:
+    - cache:
+        long: cache
+        value_name: FILE
+        help: Use cache from FILE
+    - cache-write:
+        long: cache-write
+        value_name: FILE
+        help: Pre-cache and write to FILE
