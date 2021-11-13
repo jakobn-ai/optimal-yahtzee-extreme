@@ -78,7 +78,7 @@ pub fn pre_cache(filename: &str) -> Result<()> {
 /// # Arguments
 /// * `filename` - to restore from
 /// # Returns
-/// Result - deserialization, I/O can fail
+/// Result - decompression, deserialization, I/O can fail
 pub fn restore_caches(filename: &str) -> Result<()> {
     let file = File::open(filename)?;
     let reader = BufReader::new(file);

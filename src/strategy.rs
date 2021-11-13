@@ -5,8 +5,10 @@ use crate::rules;
 use crate::yahtzee_bonus_rules as bonus;
 
 use cached::proc_macro::cached;
+use float_cmp::approx_eq;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
 
 /// Partial hand, specifying dice and pips
 type PartialHand = Vec<(Die, Pip)>;
@@ -17,7 +19,7 @@ type ArchFloat = f64;
 #[cfg(target_pointer_width = "32")]
 type ArchFloat = f32;
 /// Statistical probability
-type Probability = ArchFloat;
+pub type Probability = ArchFloat;
 /// Expectation value
 type Expectation = ArchFloat;
 
@@ -30,7 +32,7 @@ fn compact_fmt(hand: &PartialHandSlice) -> String {
 }
 
 /// State with everything relevant to strategy
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct State {
     pub score: [Score; 2],
     pub used: ScoreCard,
@@ -68,8 +70,34 @@ impl State {
     }
 }
 
+/// Hash map of all reachable hands and probabilities
+#[serde_as]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct ProbabilitiesToRoll {
+    /// Wrapped in struct for serializability
+    #[serde_as(as = "Vec<(_, _)>")]
+    table: HashMap<PartialHand, Probability>,
+}
+
+// Only using `approx_eq!` for these probabilities (but not expectation values below) Works On My
+// Machine(tm), but similar implementations for expectation values might be required.
+impl PartialEq for ProbabilitiesToRoll {
+    fn eq(&self, other: &Self) -> bool {
+        self.table.len() == other.table.len()
+            && self.table.iter().all(|(self_hand, &self_probability)| {
+                other
+                    .table
+                    .get(self_hand)
+                    .map(|&other_probability| {
+                        approx_eq!(Probability, self_probability, other_probability)
+                    })
+                    .unwrap_or(false)
+            })
+    }
+}
+
 /// Recommendation for what to keep for rerolling
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RerollRecomm {
     /// Hand to keep
     hand: PartialHand,
@@ -80,7 +108,7 @@ pub struct RerollRecomm {
 }
 
 /// Recommendation for which field to use for score
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 struct FieldRecomm {
     /// Section to choose
     section: Section,
@@ -108,15 +136,12 @@ impl Clone for FieldRecomm {
 /// * `have` - partial hand to start with
 /// * `rules` - dice rules
 /// # Returns
-/// Hash map of all reachable hands and probabilities, hands sorted
+/// Probabilities to roll - see architecture of structure above, hands sorted
 #[cached(
     key = "String",
     convert = r#"{ format!("{}{}", compact_fmt(&have), rules.short_name ) }"#
 )]
-fn probability_to_roll(
-    have: PartialHand,
-    rules: &rules::DiceRules,
-) -> HashMap<PartialHand, Probability> {
+fn probability_to_roll(have: PartialHand, rules: &rules::DiceRules) -> ProbabilitiesToRoll {
     // Calculate dice left to use
     let mut leftover = rules.dice.to_owned();
     'next_have: for &(have_die, _) in &have {
@@ -159,7 +184,9 @@ fn probability_to_roll(
         hand.sort_unstable_by_key(|&(_, pip)| pip);
         *probabilities.entry(hand).or_insert(0.0) += probability_per_hand;
     }
-    probabilities
+    ProbabilitiesToRoll {
+        table: probabilities,
+    }
 }
 
 /// Calculate best reroll
@@ -235,6 +262,7 @@ pub fn choose_reroll(
                 // expectation of this choice is all chances of hands multiplied with their
                 // expecation values summed up
                 probability_to_roll(partial_hand.to_vec(), dice_rules)
+                    .table
                     .iter()
                     .map(|(hand, probability)| {
                         let reroll =
@@ -358,9 +386,9 @@ pub mod persistent_caches {
     use rayon::join;
 
     /// Caches to be stored
-    #[derive(Serialize, Deserialize)]
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
     pub struct Caches {
-        probability_to_roll: HashMap<String, HashMap<PartialHand, Probability>>,
+        probability_to_roll: HashMap<String, ProbabilitiesToRoll>,
         choose_reroll: HashMap<String, RerollRecomm>,
         choose_field: HashMap<String, FieldRecomm>,
     }
@@ -451,27 +479,29 @@ mod tests {
                     dice: vec![((1, 2), 4)]
                 }
             ),
-            [
-                (
-                    vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 1), ((1, 2), 1)],
-                    0.125
-                ),
-                (
-                    vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 1), ((1, 2), 2)],
-                    0.375
-                ),
-                (
-                    vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 2), ((1, 2), 2)],
-                    0.375
-                ),
-                (
-                    vec![((1, 2), 1), ((1, 2), 2), ((1, 2), 2), ((1, 2), 2)],
-                    0.125
-                ),
-            ]
-            .iter()
-            .cloned()
-            .collect()
+            ProbabilitiesToRoll {
+                table: [
+                    (
+                        vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 1), ((1, 2), 1)],
+                        0.125
+                    ),
+                    (
+                        vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 1), ((1, 2), 2)],
+                        0.375
+                    ),
+                    (
+                        vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 2), ((1, 2), 2)],
+                        0.375
+                    ),
+                    (
+                        vec![((1, 2), 1), ((1, 2), 2), ((1, 2), 2), ((1, 2), 2)],
+                        0.125
+                    ),
+                ]
+                .iter()
+                .cloned()
+                .collect()
+            }
         );
     }
 
