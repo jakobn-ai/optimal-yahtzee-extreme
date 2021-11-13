@@ -103,4 +103,57 @@ pub fn restore_caches(filename: &str) -> Result<()> {
     Ok(())
 }
 
-// TODO tests
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::env::temp_dir;
+    use std::fs::remove_file;
+
+    #[test]
+    fn test_dump_caches() {
+        // Smallest possible call to all cached strategy functions
+        let rules = rules::build_rules(false, bonus::FORCED_JOKER);
+        let us_fields = rules.fields[US].len();
+        let state = strategy::State {
+            score: [0, 0],
+            used: [
+                vec![true; rules.fields[US].len()],
+                [[true].repeat(us_fields - 1), vec![false]].concat(),
+            ],
+            scored_yahtzee: false,
+            chips: 0,
+        };
+        let hand = Vec::new();
+        let rerolls = 1;
+        let reroll_recomm = strategy::choose_reroll(state.clone(), hand.clone(), rerolls, &rules);
+        let reroll_key = format!(
+            "{}{}{},{}",
+            state.compact_fmt(),
+            rules.short_name,
+            strategy::compact_fmt(&hand),
+            rerolls
+        );
+
+        let test_file = temp_dir().join("optimal-yahtzee-extreme-test_dump_caches");
+        let test_filename = test_file.to_str().unwrap();
+        dump_caches(test_filename).unwrap();
+
+        let file = File::open(test_filename).unwrap();
+        let reader = BufReader::new(file);
+        let mut deflater = DeflateDecoder::new(reader);
+        let mut serialized = Vec::new();
+        deflater.read_to_end(&mut serialized).unwrap();
+        let caches: Caches = from_slice(&serialized).unwrap();
+
+        assert_eq!(caches.version, version!());
+        assert_eq!(caches.caches, persistent_caches::dump_caches());
+        let cached_reroll = caches.caches.choose_reroll.get(&reroll_key).unwrap();
+        assert_eq!(cached_reroll, &reroll_recomm);
+
+        remove_file(test_filename).unwrap();
+    }
+}
+
+// TODO tests, incl. persistent_caches maybe?
+// TODO maybe deduplicate some test code
