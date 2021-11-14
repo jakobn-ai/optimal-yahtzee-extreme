@@ -10,10 +10,6 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
-/// Partial hand, specifying dice and pips
-pub type PartialHand = Vec<(Die, Pip)>;
-/// Partial hand but it makes Clippy happy
-type PartialHandSlice = [(Die, Pip)];
 #[cfg(target_pointer_width = "64")]
 type ArchFloat = f64;
 #[cfg(target_pointer_width = "32")]
@@ -23,13 +19,21 @@ pub type Probability = ArchFloat;
 /// Expectation value
 type Expectation = ArchFloat;
 
-// TODO if structs have no overhead, maybe this is nicer as an `impl`
-/// Compact formatting for caching
-pub fn compact_fmt(hand: &PartialHandSlice) -> String {
-    hand.iter()
-        .map(|((min, max), pip)| format!("{},{},{}", min, max, pip))
-        .reduce(|a, b| format!("{},{}", a, b))
-        .unwrap_or_else(|| String::from(""))
+/// Partial hand, specifying dice and pips
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct PartialHand {
+    /// Wrapped in struct for impl
+    pub hand: Vec<(Die, Pip)>,
+}
+
+impl PartialHand {
+    pub fn compact_fmt(&self) -> String {
+        self.hand
+            .iter()
+            .map(|((min, max), pip)| format!("{},{},{}", min, max, pip))
+            .reduce(|a, b| format!("{},{}", a, b))
+            .unwrap_or_else(|| String::from(""))
+    }
 }
 
 /// State with everything relevant to strategy
@@ -140,12 +144,12 @@ impl Clone for FieldRecomm {
 /// Probabilities to roll - see architecture of structure above, hands sorted
 #[cached(
     key = "String",
-    convert = r#"{ format!("{}{}", compact_fmt(&have), rules.short_name ) }"#
+    convert = r#"{ format!("{}{}", have.compact_fmt(), rules.short_name ) }"#
 )]
 pub fn probability_to_roll(have: PartialHand, rules: &rules::DiceRules) -> ProbabilitiesToRoll {
     // Calculate dice left to use
     let mut leftover = rules.dice.to_owned();
-    'next_have: for &(have_die, _) in &have {
+    'next_have: for &(have_die, _) in &have.hand {
         for (left_die, freq) in &mut leftover {
             if have_die == *left_die {
                 *freq -= 1;
@@ -165,7 +169,7 @@ pub fn probability_to_roll(have: PartialHand, rules: &rules::DiceRules) -> Proba
                     (min..(max + 1)).map(move |pip| {
                         // Append possible pip to hand
                         let mut new_hand = hand.clone();
-                        new_hand.push(((min, max), pip));
+                        new_hand.hand.push(((min, max), pip));
                         new_hand
                     })
                 })
@@ -182,7 +186,7 @@ pub fn probability_to_roll(have: PartialHand, rules: &rules::DiceRules) -> Proba
     // Sort hands and add up probabilities
     let mut probabilities = HashMap::new();
     for mut hand in hands {
-        hand.sort_unstable_by_key(|&(_, pip)| pip);
+        hand.hand.sort_unstable_by_key(|&(_, pip)| pip);
         *probabilities.entry(hand).or_insert(0.0) += probability_per_hand;
     }
     ProbabilitiesToRoll {
@@ -200,7 +204,7 @@ pub fn probability_to_roll(have: PartialHand, rules: &rules::DiceRules) -> Proba
 /// Reroll recommendation - see architecture of structure above
 #[cached(
     key = "String",
-    convert = r#"{ format!("{}{}{},{}", state.compact_fmt(), rules.short_name, compact_fmt(&hand), rerolls) }"#
+    convert = r#"{ format!("{}{}{},{}", state.compact_fmt(), rules.short_name, hand.compact_fmt(), rerolls) }"#
 )]
 pub fn choose_reroll(
     state: State,
@@ -233,14 +237,14 @@ pub fn choose_reroll(
     }
 
     let dice_rules = &rules.dice;
-    let mut possible_hands = vec![vec![]];
-    for &el in &hand {
+    let mut possible_hands = vec![PartialHand { hand: Vec::new() }];
+    for &el in &hand.hand {
         possible_hands.extend(
             possible_hands
                 .clone()
                 .into_iter()
                 .map(|mut hand| {
-                    hand.push(el);
+                    hand.hand.push(el);
                     hand
                 })
                 .collect::<Vec<PartialHand>>(),
@@ -249,8 +253,8 @@ pub fn choose_reroll(
     let best = possible_hands
         .into_par_iter()
         .map(|partial_hand| HandChance {
-            hand: partial_hand.to_vec(),
-            expectation: if partial_hand.len()
+            hand: partial_hand.clone(),
+            expectation: if partial_hand.hand.len()
                 == dice_rules
                     .dice
                     .iter()
@@ -262,12 +266,11 @@ pub fn choose_reroll(
             } else {
                 // expectation of this choice is all chances of hands multiplied with their
                 // expecation values summed up
-                probability_to_roll(partial_hand.to_vec(), dice_rules)
+                probability_to_roll(partial_hand, dice_rules)
                     .table
                     .iter()
                     .map(|(hand, probability)| {
-                        let reroll =
-                            choose_reroll(state.clone(), hand.to_vec(), rerolls - 1, rules);
+                        let reroll = choose_reroll(state.clone(), hand.clone(), rerolls - 1, rules);
                         probability * reroll.expectation
                     })
                     .sum()
@@ -291,12 +294,12 @@ pub fn choose_reroll(
 /// Field recommendation - see architecture of structure above
 #[cached(
     key = "String",
-    convert = r#"{ format!("{}{}{}", state.compact_fmt(), rules.short_name, compact_fmt(&have)) }"#
+    convert = r#"{ format!("{}{}{}", state.compact_fmt(), rules.short_name, have.compact_fmt()) }"#
 )]
 pub fn choose_field(state: State, have: PartialHand, rules: &rules::Rules) -> FieldRecomm {
     let fields_rules = &rules.fields;
 
-    let hand: Hand = have.iter().map(|&(_, pip)| pip).collect();
+    let hand: Hand = have.hand.iter().map(|&(_, pip)| pip).collect();
     let mut available_fields: Vec<_> = state
         .used
         .iter()
@@ -365,8 +368,8 @@ pub fn choose_field(state: State, have: PartialHand, rules: &rules::Rules) -> Fi
                 new_state.scored_yahtzee = true
             }
 
-            let expectation =
-                choose_reroll(new_state.clone(), vec![], THROWS - 1, rules).expectation;
+            let hand = PartialHand { hand: Vec::new() };
+            let expectation = choose_reroll(new_state.clone(), hand, THROWS - 1, rules).expectation;
             FieldRecomm {
                 section,
                 field,
@@ -450,8 +453,14 @@ mod tests {
 
     #[test]
     fn test_compact_fmt_partial_hand() {
-        assert_eq!(compact_fmt(&vec![]), "");
-        assert_eq!(compact_fmt(&vec![((1, 2), 1), ((1, 2), 2)]), "1,2,1,1,2,2");
+        assert_eq!(PartialHand { hand: Vec::new() }.compact_fmt(), "");
+        assert_eq!(
+            PartialHand {
+                hand: vec![((1, 2), 1), ((1, 2), 2)]
+            }
+            .compact_fmt(),
+            "1,2,1,1,2,2"
+        );
     }
 
     #[test]
@@ -474,7 +483,9 @@ mod tests {
         // comparing probabilities for equality is okay when comparing eighths
         assert_eq!(
             probability_to_roll(
-                vec![((1, 2), 1)],
+                PartialHand {
+                    hand: vec![((1, 2), 1)]
+                },
                 &rules::DiceRules {
                     short_name: 'w',
                     dice: vec![((1, 2), 4)]
@@ -483,19 +494,27 @@ mod tests {
             ProbabilitiesToRoll {
                 table: [
                     (
-                        vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 1), ((1, 2), 1)],
+                        PartialHand {
+                            hand: vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 1), ((1, 2), 1)]
+                        },
                         0.125
                     ),
                     (
-                        vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 1), ((1, 2), 2)],
+                        PartialHand {
+                            hand: vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 1), ((1, 2), 2)]
+                        },
                         0.375
                     ),
                     (
-                        vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 2), ((1, 2), 2)],
+                        PartialHand {
+                            hand: vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 2), ((1, 2), 2)]
+                        },
                         0.375
                     ),
                     (
-                        vec![((1, 2), 1), ((1, 2), 2), ((1, 2), 2), ((1, 2), 2)],
+                        PartialHand {
+                            hand: vec![((1, 2), 1), ((1, 2), 2), ((1, 2), 2), ((1, 2), 2)]
+                        },
                         0.125
                     ),
                 ]
@@ -511,10 +530,12 @@ mod tests {
     fn test_probability_to_roll_panic() {
         // Running with a mismatch between `have` and `rules` should fail
         probability_to_roll(
-            vec![((1, 6), 1)],
+            PartialHand {
+                hand: vec![((1, 6), 1)],
+            },
             &rules::DiceRules {
                 short_name: 'x',
-                dice: vec![],
+                dice: Vec::new(),
             },
         );
     }
@@ -531,7 +552,7 @@ mod tests {
             },
             chips: 2,
             fields: [
-                vec![],
+                Vec::new(),
                 vec![rules::SectionRule {
                     name: "Throw 1".to_string(),
                     function: |hand| (hand[0] - 1) as Score,
@@ -544,19 +565,24 @@ mod tests {
             yahtzee_bonus: bonus::NONE,
         };
 
-        let ready_hand = vec![((1, 2), 2)];
-        let unready_hand = vec![((1, 2), 1)];
+        let ready_hand = PartialHand {
+            hand: vec![((1, 2), 2)],
+        };
+        let unready_hand = PartialHand {
+            hand: vec![((1, 2), 1)],
+        };
+        let empty_hand = PartialHand { hand: Vec::new() };
 
         // With no rerolls and no 2 thrown yet, the chip should be used
         // However, only one chip can be used
         let mut state = State {
             score: [0, 0],
-            used: [vec![], vec![false]],
+            used: [Vec::new(), vec![false]],
             scored_yahtzee: false,
             chips: 2,
         };
         let rec = choose_reroll(state.clone(), unready_hand.clone(), 0, &simple_rules);
-        assert_eq!(rec.hand, vec![]);
+        assert_eq!(rec.hand, empty_hand);
         assert_eq!(rec.state.chips, 1);
         assert_eq!(rec.expectation, 0.5);
 
@@ -570,7 +596,7 @@ mod tests {
         // Simpler assuming no chips
         state.chips = 0;
         let rec = choose_reroll(state.clone(), unready_hand.clone(), 1, &simple_rules);
-        assert_eq!(rec.hand, vec![]);
+        assert_eq!(rec.hand, empty_hand);
         assert_eq!(rec.expectation, 0.5);
 
         // With a reroll and a 2 thrown, no reroll should happen
@@ -638,7 +664,9 @@ mod tests {
             },
         };
 
-        let pair_of_twos = [((1, 2), 2)].repeat(2);
+        let pair_of_twos = PartialHand {
+            hand: [((1, 2), 2)].repeat(2),
+        };
         let ls_full_except_chance = [[true].repeat(4), vec![false], vec![true]].concat();
 
         // Pair of Twos hits lower expectation value with All Twos, but it is not available,
@@ -671,7 +699,10 @@ mod tests {
 
         // Test awardation of upper section bonus
         state.used = [vec![false, true], [true].repeat(6)];
-        let rec = choose_field(state.clone(), vec![((1, 2), 1), ((1, 2), 2)], &simple_rules);
+        let hand = PartialHand {
+            hand: vec![((1, 2), 1), ((1, 2), 2)],
+        };
+        let rec = choose_field(state.clone(), hand, &simple_rules);
         assert_eq!(rec.section, US);
         assert_eq!(rec.field, 0);
         assert_eq!(rec.state.score[US], 2);

@@ -45,7 +45,8 @@ fn warm_up_caches() {
                 scored_yahtzee: false,
                 chips: rules.chips,
             };
-            strategy::choose_reroll(state, vec![], THROWS, &rules);
+            let hand = strategy::PartialHand { hand: Vec::new() };
+            strategy::choose_reroll(state, hand, THROWS, &rules);
         });
 }
 
@@ -125,14 +126,14 @@ mod tests {
             scored_yahtzee: false,
             chips: 0,
         };
-        let hand = Vec::new();
+        let hand = strategy::PartialHand { hand: Vec::new() };
         let rerolls = 1;
         let reroll_recomm = strategy::choose_reroll(state.clone(), hand.clone(), rerolls, &rules);
         let reroll_key = format!(
             "{}{}{},{}",
             state.compact_fmt(),
             rules.short_name,
-            strategy::compact_fmt(&hand),
+            hand.compact_fmt(),
             rerolls
         );
 
@@ -167,7 +168,7 @@ mod tests {
     #[test]
     fn test_restore_caches() {
         // Dummy test data
-        let hand: strategy::PartialHand = Vec::new();
+        let hand = strategy::PartialHand { hand: Vec::new() };
         let rules = rules::build_rules(false, bonus::FORCED_JOKER);
         let probabilities_to_roll = strategy::ProbabilitiesToRoll {
             table: HashMap::new(),
@@ -202,7 +203,7 @@ mod tests {
             "{}{}{},{}",
             state.compact_fmt(),
             rules.short_name,
-            strategy::compact_fmt(&hand),
+            hand.compact_fmt(),
             rerolls
         );
         let reroll_recomm_test = reroll_recomm.clone();
@@ -210,7 +211,7 @@ mod tests {
             "{}{}{}",
             state.compact_fmt(),
             rules.short_name,
-            strategy::compact_fmt(&hand)
+            hand.compact_fmt(),
         );
         let field_recomm_test = field_recomm.clone();
 
