@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
 /// Partial hand, specifying dice and pips
-type PartialHand = Vec<(Die, Pip)>;
+pub type PartialHand = Vec<(Die, Pip)>;
 /// Partial hand but it makes Clippy happy
 type PartialHandSlice = [(Die, Pip)];
 #[cfg(target_pointer_width = "64")]
@@ -23,8 +23,9 @@ pub type Probability = ArchFloat;
 /// Expectation value
 type Expectation = ArchFloat;
 
+// TODO if structs have no overhead, maybe this is nicer as an `impl`
 /// Compact formatting for caching
-fn compact_fmt(hand: &PartialHandSlice) -> String {
+pub fn compact_fmt(hand: &PartialHandSlice) -> String {
     hand.iter()
         .map(|((min, max), pip)| format!("{},{},{}", min, max, pip))
         .reduce(|a, b| format!("{},{}", a, b))
@@ -52,7 +53,7 @@ impl Clone for State {
 }
 
 impl State {
-    fn compact_fmt(&self) -> String {
+    pub fn compact_fmt(&self) -> String {
         format!(
             "{},{}{},{}",
             format!("{},{}", self.score[0], self.score[1]),
@@ -73,10 +74,10 @@ impl State {
 /// Hash map of all reachable hands and probabilities
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct ProbabilitiesToRoll {
+pub struct ProbabilitiesToRoll {
     /// Wrapped in struct for serializability
     #[serde_as(as = "Vec<(_, _)>")]
-    table: HashMap<PartialHand, Probability>,
+    pub table: HashMap<PartialHand, Probability>,
 }
 
 // Only using `approx_eq!` for these probabilities (but not expectation values below) Works On My
@@ -100,24 +101,24 @@ impl PartialEq for ProbabilitiesToRoll {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RerollRecomm {
     /// Hand to keep
-    hand: PartialHand,
+    pub hand: PartialHand,
     /// State - passed on unchanged
-    state: State,
+    pub state: State,
     /// Expectation value when keeping this hand
-    expectation: Expectation,
+    pub expectation: Expectation,
 }
 
 /// Recommendation for which field to use for score
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-struct FieldRecomm {
+pub struct FieldRecomm {
     /// Section to choose
-    section: Section,
+    pub section: Section,
     /// Field to choose
-    field: Field,
+    pub field: Field,
     /// State after choosing this field
-    state: State,
+    pub state: State,
     /// Expectation value when choosing this field
-    expectation: Expectation,
+    pub expectation: Expectation,
 }
 
 impl Clone for FieldRecomm {
@@ -141,7 +142,7 @@ impl Clone for FieldRecomm {
     key = "String",
     convert = r#"{ format!("{}{}", compact_fmt(&have), rules.short_name ) }"#
 )]
-fn probability_to_roll(have: PartialHand, rules: &rules::DiceRules) -> ProbabilitiesToRoll {
+pub fn probability_to_roll(have: PartialHand, rules: &rules::DiceRules) -> ProbabilitiesToRoll {
     // Calculate dice left to use
     let mut leftover = rules.dice.to_owned();
     'next_have: for &(have_die, _) in &have {
@@ -292,7 +293,7 @@ pub fn choose_reroll(
     key = "String",
     convert = r#"{ format!("{}{}{}", state.compact_fmt(), rules.short_name, compact_fmt(&have)) }"#
 )]
-fn choose_field(state: State, have: PartialHand, rules: &rules::Rules) -> FieldRecomm {
+pub fn choose_field(state: State, have: PartialHand, rules: &rules::Rules) -> FieldRecomm {
     let fields_rules = &rules.fields;
 
     let hand: Hand = have.iter().map(|&(_, pip)| pip).collect();
@@ -388,9 +389,9 @@ pub mod persistent_caches {
     /// Caches to be stored
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     pub struct Caches {
-        probability_to_roll: HashMap<String, ProbabilitiesToRoll>,
-        choose_reroll: HashMap<String, RerollRecomm>,
-        choose_field: HashMap<String, FieldRecomm>,
+        pub probability_to_roll: HashMap<String, ProbabilitiesToRoll>,
+        pub choose_reroll: HashMap<String, RerollRecomm>,
+        pub choose_field: HashMap<String, FieldRecomm>,
     }
 
     pub fn dump_caches() -> Caches {

@@ -107,6 +107,7 @@ pub fn restore_caches(filename: &str) -> Result<()> {
 mod tests {
     use super::*;
 
+    use std::collections::HashMap;
     use std::env::temp_dir;
     use std::fs::remove_file;
 
@@ -147,13 +148,108 @@ mod tests {
         let caches: Caches = from_slice(&serialized).unwrap();
 
         assert_eq!(caches.version, version!());
+        // TODO check one directly
         assert_eq!(caches.caches, persistent_caches::dump_caches());
         let cached_reroll = caches.caches.choose_reroll.get(&reroll_key).unwrap();
         assert_eq!(cached_reroll, &reroll_recomm);
 
         remove_file(test_filename).unwrap();
     }
-}
 
-// TODO tests, incl. persistent_caches maybe?
-// TODO maybe deduplicate some test code
+    fn write_caches(filename: &str, caches: &Caches) {
+        let serialized = to_vec(caches).unwrap();
+        let mut encoder = DeflateEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(&serialized).unwrap();
+        let compressed = encoder.finish().unwrap();
+        write(filename, compressed).unwrap();
+    }
+
+    #[test]
+    fn test_restore_caches() {
+        // Dummy test data
+        let hand: strategy::PartialHand = Vec::new();
+        let rules = rules::build_rules(false, bonus::FORCED_JOKER);
+        let probabilities_to_roll = strategy::ProbabilitiesToRoll {
+            table: HashMap::new(),
+        };
+        let state = strategy::State {
+            score: [0, 0],
+            used: [
+                vec![true; rules.fields[US].len()],
+                vec![true; rules.fields[LS].len()],
+            ],
+            scored_yahtzee: false,
+            chips: 0,
+        };
+        let rerolls = 0;
+        let expectation = 0.0;
+        let reroll_recomm = strategy::RerollRecomm {
+            hand: hand.clone(),
+            state: state.clone(),
+            expectation,
+        };
+        let field_recomm = strategy::FieldRecomm {
+            section: US,
+            field: 0,
+            state: state.clone(),
+            expectation,
+        };
+
+        // Save some `rustfmt` lines
+        let roll_key = String::from(rules.short_name);
+        let roll_test = probabilities_to_roll.clone();
+        let reroll_key = format!(
+            "{}{}{},{}",
+            state.compact_fmt(),
+            rules.short_name,
+            strategy::compact_fmt(&hand),
+            rerolls
+        );
+        let reroll_recomm_test = reroll_recomm.clone();
+        let field_key = format!(
+            "{}{}{}",
+            state.compact_fmt(),
+            rules.short_name,
+            strategy::compact_fmt(&hand)
+        );
+        let field_recomm_test = field_recomm.clone();
+
+        // Set another patch level, should still work
+        let mut version = Version::parse(version!()).unwrap();
+        version.patch += 1;
+
+        let mut caches = Caches {
+            version: version.to_string(),
+            caches: persistent_caches::Caches {
+                // simple nonsense results -- have nothing, get nothing
+                probability_to_roll: [(roll_key, roll_test)].iter().cloned().collect(),
+                choose_reroll: [(reroll_key, reroll_recomm_test)].iter().cloned().collect(),
+                choose_field: [(field_key, field_recomm_test)].iter().cloned().collect(),
+            },
+        };
+
+        let test_file = temp_dir().join("optimal-yahtzee-extreme-test_restore_caches");
+        let test_filename = test_file.to_str().unwrap();
+
+        write_caches(test_filename, &caches);
+        restore_caches(test_filename).unwrap();
+
+        assert_eq!(
+            strategy::probability_to_roll(hand.clone(), &rules.dice),
+            probabilities_to_roll,
+        );
+        assert_eq!(
+            strategy::choose_reroll(state.clone(), hand.clone(), rerolls, &rules),
+            reroll_recomm,
+        );
+        assert_eq!(strategy::choose_field(state, hand, &rules), field_recomm);
+
+        // Test version mismatch
+        version.minor += 1;
+        caches.version = version.to_string();
+        write_caches(test_filename, &caches);
+        assert!(restore_caches(test_filename).is_err());
+
+        remove_file(test_filename).unwrap();
+    }
+}
