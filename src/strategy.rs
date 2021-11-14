@@ -14,10 +14,23 @@ use serde_with::serde_as;
 type ArchFloat = f64;
 #[cfg(target_pointer_width = "32")]
 type ArchFloat = f32;
-/// Statistical probability
-pub type Probability = ArchFloat;
 /// Expectation value
 type Expectation = ArchFloat;
+
+/// Statistical probability
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Probability {
+    /// Wrapped in struct for PartialEq
+    pub p: ArchFloat,
+}
+
+// For the tests, only using `approx_eq!` for these probabilities (but not expectation values)
+// Works On My Machine(tm), but similar implementations for expectation values might be required.
+impl PartialEq for Probability {
+    fn eq(&self, other: &Self) -> bool {
+        approx_eq!(ArchFloat, self.p, other.p)
+    }
+}
 
 /// Partial hand, specifying dice and pips
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -77,28 +90,11 @@ impl State {
 
 /// Hash map of all reachable hands and probabilities
 #[serde_as]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ProbabilitiesToRoll {
     /// Wrapped in struct for serializability
     #[serde_as(as = "Vec<(_, _)>")]
     pub table: HashMap<PartialHand, Probability>,
-}
-
-// Only using `approx_eq!` for these probabilities (but not expectation values below) Works On My
-// Machine(tm), but similar implementations for expectation values might be required.
-impl PartialEq for ProbabilitiesToRoll {
-    fn eq(&self, other: &Self) -> bool {
-        self.table.len() == other.table.len()
-            && self.table.iter().all(|(self_hand, &self_probability)| {
-                other
-                    .table
-                    .get(self_hand)
-                    .map(|&other_probability| {
-                        approx_eq!(Probability, self_probability, other_probability)
-                    })
-                    .unwrap_or(false)
-            })
-    }
 }
 
 /// Recommendation for what to keep for rerolling
@@ -181,13 +177,16 @@ pub fn probability_to_roll(have: PartialHand, rules: &rules::DiceRules) -> Proba
     let total = leftover.iter().fold(1, |total, ((min, max), frequency)| {
         total * i32::pow((max - min + 1) as i32, *frequency as u32)
     });
-    let probability_per_hand = 1.0 / total as Probability;
+    let probability_per_hand = 1.0 / total as ArchFloat;
 
     // Sort hands and add up probabilities
     let mut probabilities = HashMap::new();
     for mut hand in hands {
         hand.hand.sort_unstable_by_key(|&(_, pip)| pip);
-        *probabilities.entry(hand).or_insert(0.0) += probability_per_hand;
+        probabilities
+            .entry(hand)
+            .or_insert(Probability { p: 0.0 })
+            .p += probability_per_hand;
     }
     ProbabilitiesToRoll {
         table: probabilities,
@@ -271,7 +270,7 @@ pub fn choose_reroll(
                     .iter()
                     .map(|(hand, probability)| {
                         let reroll = choose_reroll(state.clone(), hand.clone(), rerolls - 1, rules);
-                        probability * reroll.expectation
+                        probability.p * reroll.expectation
                     })
                     .sum()
             },
@@ -497,25 +496,25 @@ mod tests {
                         PartialHand {
                             hand: vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 1), ((1, 2), 1)]
                         },
-                        0.125
+                        Probability { p: 0.125 },
                     ),
                     (
                         PartialHand {
                             hand: vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 1), ((1, 2), 2)]
                         },
-                        0.375
+                        Probability { p: 0.375 },
                     ),
                     (
                         PartialHand {
                             hand: vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 2), ((1, 2), 2)]
                         },
-                        0.375
+                        Probability { p: 0.375 },
                     ),
                     (
                         PartialHand {
                             hand: vec![((1, 2), 1), ((1, 2), 2), ((1, 2), 2), ((1, 2), 2)]
                         },
-                        0.125
+                        Probability { p: 0.125 },
                     ),
                 ]
                 .iter()
