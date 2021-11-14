@@ -199,7 +199,7 @@ fn probability_to_roll(have: PartialHand, rules: &rules::DiceRules) -> Probabili
 /// Reroll recommendation - see architecture of structure above
 #[cached(
     key = "String",
-    convert = r#"{ format!("{:?}{}{}{}", state.compact_fmt(), rules.short_name, compact_fmt(&hand), rerolls) }"#
+    convert = r#"{ format!("{}{}{},{}", state.compact_fmt(), rules.short_name, compact_fmt(&hand), rerolls) }"#
 )]
 pub fn choose_reroll(
     state: State,
