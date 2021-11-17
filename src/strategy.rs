@@ -19,29 +19,23 @@ type Expectation = ArchFloat;
 
 /// Statistical probability
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Probability {
-    /// Wrapped in struct for PartialEq
-    pub p: ArchFloat,
-}
+pub struct Probability(ArchFloat);
 
 // For the tests, only using `approx_eq!` for these probabilities (but not expectation values)
 // Works On My Machine(tm), but similar implementations for expectation values might be required.
 impl PartialEq for Probability {
     fn eq(&self, other: &Self) -> bool {
-        approx_eq!(ArchFloat, self.p, other.p)
+        approx_eq!(ArchFloat, self.0, other.0)
     }
 }
 
 /// Partial hand, specifying dice and pips
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct PartialHand {
-    /// Wrapped in struct for impl
-    pub hand: Vec<(Die, Pip)>,
-}
+pub struct PartialHand(pub Vec<(Die, Pip)>);
 
 impl PartialHand {
     pub fn compact_fmt(&self) -> String {
-        self.hand
+        self.0
             .iter()
             .map(|((min, max), pip)| format!("{},{},{}", min, max, pip))
             .reduce(|a, b| format!("{},{}", a, b))
@@ -145,7 +139,7 @@ impl Clone for FieldRecomm {
 pub fn probability_to_roll(have: PartialHand, rules: &rules::DiceRules) -> ProbabilitiesToRoll {
     // Calculate dice left to use
     let mut leftover = rules.dice.to_owned();
-    'next_have: for &(have_die, _) in &have.hand {
+    'next_have: for &(have_die, _) in &have.0 {
         for (left_die, freq) in &mut leftover {
             if have_die == *left_die {
                 *freq -= 1;
@@ -165,7 +159,7 @@ pub fn probability_to_roll(have: PartialHand, rules: &rules::DiceRules) -> Proba
                     (min..(max + 1)).map(move |pip| {
                         // Append possible pip to hand
                         let mut new_hand = hand.clone();
-                        new_hand.hand.push(((min, max), pip));
+                        new_hand.0.push(((min, max), pip));
                         new_hand
                     })
                 })
@@ -182,11 +176,8 @@ pub fn probability_to_roll(have: PartialHand, rules: &rules::DiceRules) -> Proba
     // Sort hands and add up probabilities
     let mut probabilities = HashMap::new();
     for mut hand in hands {
-        hand.hand.sort_unstable_by_key(|&(_, pip)| pip);
-        probabilities
-            .entry(hand)
-            .or_insert(Probability { p: 0.0 })
-            .p += probability_per_hand;
+        hand.0.sort_unstable_by_key(|&(_, pip)| pip);
+        probabilities.entry(hand).or_insert(Probability(0.0)).0 += probability_per_hand;
     }
     ProbabilitiesToRoll {
         table: probabilities,
@@ -236,14 +227,14 @@ pub fn choose_reroll(
     }
 
     let dice_rules = &rules.dice;
-    let mut possible_hands = vec![PartialHand { hand: Vec::new() }];
-    for &el in &hand.hand {
+    let mut possible_hands = vec![PartialHand(Vec::new())];
+    for &el in &hand.0 {
         possible_hands.extend(
             possible_hands
                 .clone()
                 .into_iter()
                 .map(|mut hand| {
-                    hand.hand.push(el);
+                    hand.0.push(el);
                     hand
                 })
                 .collect::<Vec<PartialHand>>(),
@@ -253,7 +244,7 @@ pub fn choose_reroll(
         .into_par_iter()
         .map(|partial_hand| HandChance {
             hand: partial_hand.clone(),
-            expectation: if partial_hand.hand.len()
+            expectation: if partial_hand.0.len()
                 == dice_rules
                     .dice
                     .iter()
@@ -270,7 +261,7 @@ pub fn choose_reroll(
                     .iter()
                     .map(|(hand, probability)| {
                         let reroll = choose_reroll(state.clone(), hand.clone(), rerolls - 1, rules);
-                        probability.p * reroll.expectation
+                        probability.0 * reroll.expectation
                     })
                     .sum()
             },
@@ -298,7 +289,7 @@ pub fn choose_reroll(
 pub fn choose_field(state: State, have: PartialHand, rules: &rules::Rules) -> FieldRecomm {
     let fields_rules = &rules.fields;
 
-    let hand: Hand = have.hand.iter().map(|&(_, pip)| pip).collect();
+    let hand: Hand = have.0.iter().map(|&(_, pip)| pip).collect();
     let mut available_fields: Vec<_> = state
         .used
         .iter()
@@ -367,7 +358,7 @@ pub fn choose_field(state: State, have: PartialHand, rules: &rules::Rules) -> Fi
                 new_state.scored_yahtzee = true
             }
 
-            let hand = PartialHand { hand: Vec::new() };
+            let hand = PartialHand(Vec::new());
             let expectation = choose_reroll(new_state.clone(), hand, THROWS - 1, rules).expectation;
             FieldRecomm {
                 section,
@@ -452,12 +443,9 @@ mod tests {
 
     #[test]
     fn test_compact_fmt_partial_hand() {
-        assert_eq!(PartialHand { hand: Vec::new() }.compact_fmt(), "");
+        assert_eq!(PartialHand(Vec::new()).compact_fmt(), "");
         assert_eq!(
-            PartialHand {
-                hand: vec![((1, 2), 1), ((1, 2), 2)]
-            }
-            .compact_fmt(),
+            PartialHand(vec![((1, 2), 1), ((1, 2), 2)]).compact_fmt(),
             "1,2,1,1,2,2"
         );
     }
@@ -482,9 +470,7 @@ mod tests {
         // comparing probabilities for equality is okay when comparing eighths
         assert_eq!(
             probability_to_roll(
-                PartialHand {
-                    hand: vec![((1, 2), 1)]
-                },
+                PartialHand(vec![((1, 2), 1)]),
                 &rules::DiceRules {
                     short_name: 'w',
                     dice: vec![((1, 2), 4)]
@@ -493,28 +479,20 @@ mod tests {
             ProbabilitiesToRoll {
                 table: [
                     (
-                        PartialHand {
-                            hand: vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 1), ((1, 2), 1)]
-                        },
-                        Probability { p: 0.125 },
+                        PartialHand(vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 1), ((1, 2), 1)]),
+                        Probability(0.125),
                     ),
                     (
-                        PartialHand {
-                            hand: vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 1), ((1, 2), 2)]
-                        },
-                        Probability { p: 0.375 },
+                        PartialHand(vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 1), ((1, 2), 2)]),
+                        Probability(0.375),
                     ),
                     (
-                        PartialHand {
-                            hand: vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 2), ((1, 2), 2)]
-                        },
-                        Probability { p: 0.375 },
+                        PartialHand(vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 2), ((1, 2), 2)]),
+                        Probability(0.375),
                     ),
                     (
-                        PartialHand {
-                            hand: vec![((1, 2), 1), ((1, 2), 2), ((1, 2), 2), ((1, 2), 2)]
-                        },
-                        Probability { p: 0.125 },
+                        PartialHand(vec![((1, 2), 1), ((1, 2), 2), ((1, 2), 2), ((1, 2), 2)]),
+                        Probability(0.125),
                     ),
                 ]
                 .iter()
@@ -529,9 +507,7 @@ mod tests {
     fn test_probability_to_roll_panic() {
         // Running with a mismatch between `have` and `rules` should fail
         probability_to_roll(
-            PartialHand {
-                hand: vec![((1, 6), 1)],
-            },
+            PartialHand(vec![((1, 6), 1)]),
             &rules::DiceRules {
                 short_name: 'x',
                 dice: Vec::new(),
@@ -564,13 +540,9 @@ mod tests {
             yahtzee_bonus: bonus::NONE,
         };
 
-        let ready_hand = PartialHand {
-            hand: vec![((1, 2), 2)],
-        };
-        let unready_hand = PartialHand {
-            hand: vec![((1, 2), 1)],
-        };
-        let empty_hand = PartialHand { hand: Vec::new() };
+        let ready_hand = PartialHand(vec![((1, 2), 2)]);
+        let unready_hand = PartialHand(vec![((1, 2), 1)]);
+        let empty_hand = PartialHand(Vec::new());
 
         // With no rerolls and no 2 thrown yet, the chip should be used
         // However, only one chip can be used
@@ -663,9 +635,7 @@ mod tests {
             },
         };
 
-        let pair_of_twos = PartialHand {
-            hand: [((1, 2), 2)].repeat(2),
-        };
+        let pair_of_twos = PartialHand([((1, 2), 2)].repeat(2));
         let ls_full_except_chance = [[true].repeat(4), vec![false], vec![true]].concat();
 
         // Pair of Twos hits lower expectation value with All Twos, but it is not available,
@@ -698,9 +668,7 @@ mod tests {
 
         // Test awardation of upper section bonus
         state.used = [vec![false, true], [true].repeat(6)];
-        let hand = PartialHand {
-            hand: vec![((1, 2), 1), ((1, 2), 2)],
-        };
+        let hand = PartialHand(vec![((1, 2), 1), ((1, 2), 2)]);
         let rec = choose_field(state.clone(), hand, &simple_rules);
         assert_eq!(rec.section, US);
         assert_eq!(rec.field, 0);

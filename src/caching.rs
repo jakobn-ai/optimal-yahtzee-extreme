@@ -45,7 +45,7 @@ fn warm_up_caches() {
                 scored_yahtzee: false,
                 chips: rules.chips,
             };
-            let hand = strategy::PartialHand { hand: Vec::new() };
+            let hand = strategy::PartialHand(Vec::new());
             strategy::choose_reroll(state, hand, THROWS, &rules);
         });
 }
@@ -126,7 +126,7 @@ mod tests {
             scored_yahtzee: false,
             chips: 0,
         };
-        let hand = strategy::PartialHand { hand: Vec::new() };
+        let hand = strategy::PartialHand(Vec::new());
         let rerolls = 1;
         let reroll_recomm = strategy::choose_reroll(state.clone(), hand.clone(), rerolls, &rules);
         let reroll_key = format!(
@@ -149,7 +149,6 @@ mod tests {
         let caches: Caches = from_slice(&serialized).unwrap();
 
         assert_eq!(caches.version, version!());
-        // TODO check one directly
         assert_eq!(caches.caches, persistent_caches::dump_caches());
         let cached_reroll = caches.caches.choose_reroll.get(&reroll_key).unwrap();
         assert_eq!(cached_reroll, &reroll_recomm);
@@ -168,7 +167,7 @@ mod tests {
     #[test]
     fn test_restore_caches() {
         // Dummy test data
-        let hand = strategy::PartialHand { hand: Vec::new() };
+        let hand = strategy::PartialHand(Vec::new());
         let rules = rules::build_rules(false, bonus::FORCED_JOKER);
         let probabilities_to_roll = strategy::ProbabilitiesToRoll {
             table: HashMap::new(),
