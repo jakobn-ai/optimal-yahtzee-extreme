@@ -5,7 +5,7 @@ mod rules;
 mod strategy;
 mod yahtzee_bonus_rules;
 
-use anyhow::{bail, Result};
+use anyhow::{ensure, Result};
 
 #[macro_use]
 extern crate clap;
@@ -19,9 +19,7 @@ fn main() -> Result<()> {
     let cache = matches.value_of("cache");
 
     if let Some(filename) = matches.value_of("cache-write") {
-        if cache.is_some() {
-            bail!("caches cannot be used in pre-caching");
-        }
+        ensure!(cache.is_none(), "caches cannot be used in pre-caching");
         caching::pre_cache(filename)?;
     }
     if let Some(filename) = cache {

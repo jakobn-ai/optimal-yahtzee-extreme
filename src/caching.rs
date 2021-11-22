@@ -7,7 +7,7 @@ use std::fs::{write, File};
 use std::io::{BufReader, Read, Write};
 use std::iter::repeat;
 
-use anyhow::{bail, Result};
+use anyhow::{ensure, Result};
 use flate2::{bufread::DeflateDecoder, write::DeflateEncoder, Compression};
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
@@ -85,13 +85,12 @@ pub fn restore_caches(filename: &str) -> Result<()> {
     let mut req = VersionReq::parse(&format!("~{}", caches.version))?;
     // Minor releases are forwards and backwards compatible
     req.comparators[0].patch = Some(0);
-    if !req.matches(&Version::parse(version)?) {
-        bail!(
-            "Caches were created on version {}, this is version {}",
-            caches.version,
-            version
-        );
-    }
+    ensure!(
+        req.matches(&Version::parse(version)?),
+        "Caches were created on version {}, this is version {}",
+        caches.version,
+        version
+    );
 
     persistent_caches::populate_caches(caches.caches);
     Ok(())
