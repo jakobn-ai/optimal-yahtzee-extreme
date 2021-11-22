@@ -22,13 +22,6 @@ struct Caches {
     caches: persistent_caches::Caches,
 }
 
-/// Retrieve version information for compatibility
-macro_rules! version {
-    () => {
-        env!("CARGO_PKG_VERSION", "must build with cargo")
-    };
-}
-
 /// Populate all caches by (transitively) calling all cachable functions with their entire domains
 fn warm_up_caches() {
     repeat(false)
@@ -57,7 +50,7 @@ fn warm_up_caches() {
 /// Result - serialization, I/O can fail
 fn dump_caches(filename: &str) -> Result<()> {
     let caches = Caches {
-        version: String::from(version!()),
+        version: String::from(crate_version!()),
         caches: persistent_caches::dump_caches(),
     };
     let serialized = to_vec(&caches)?;
@@ -88,7 +81,7 @@ pub fn restore_caches(filename: &str) -> Result<()> {
     deflater.read_to_end(&mut serialized)?;
     let caches: Caches = from_slice(&serialized)?;
 
-    let version = version!();
+    let version = crate_version!();
     let mut req = VersionReq::parse(&format!("~{}", caches.version))?;
     // Minor releases are forwards and backwards compatible
     req.comparators[0].patch = Some(0);
@@ -148,7 +141,7 @@ mod tests {
         deflater.read_to_end(&mut serialized).unwrap();
         let caches: Caches = from_slice(&serialized).unwrap();
 
-        assert_eq!(caches.version, version!());
+        assert_eq!(caches.version, crate_version!());
         assert_eq!(caches.caches, persistent_caches::dump_caches());
         let cached_reroll = caches.caches.choose_reroll.get(&reroll_key).unwrap();
         assert_eq!(cached_reroll, &reroll_recomm);
@@ -215,7 +208,7 @@ mod tests {
         let field_recomm_test = field_recomm.clone();
 
         // Set another patch level, should still work
-        let mut version = Version::parse(version!()).unwrap();
+        let mut version = Version::parse(crate_version!()).unwrap();
         version.patch += 1;
 
         let mut caches = Caches {
