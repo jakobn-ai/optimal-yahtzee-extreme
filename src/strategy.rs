@@ -1,8 +1,8 @@
-use std::collections::HashMap;
-
 use crate::global::*;
 use crate::rules;
 use crate::yahtzee_bonus_rules as bonus;
+
+use std::collections::HashMap;
 
 use cached::proc_macro::cached;
 use float_cmp::approx_eq;
@@ -29,20 +29,6 @@ impl PartialEq for Probability {
     }
 }
 
-/// Partial hand, specifying dice and pips
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct PartialHand(pub Vec<(Die, Pip)>);
-
-impl PartialHand {
-    pub fn compact_fmt(&self) -> String {
-        self.0
-            .iter()
-            .map(|((min, max), pip)| format!("{},{},{}", min, max, pip))
-            .reduce(|a, b| format!("{},{}", a, b))
-            .unwrap_or_else(|| String::from(""))
-    }
-}
-
 /// State with everything relevant to strategy
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct State {
@@ -64,6 +50,7 @@ impl Clone for State {
 }
 
 impl State {
+    /// Compact format for cache keys
     pub fn compact_fmt(&self) -> String {
         format!(
             "{},{}{},{}",
@@ -138,7 +125,7 @@ impl Clone for FieldRecomm {
 )]
 pub fn probability_to_roll(have: PartialHand, rules: &rules::DiceRules) -> ProbabilitiesToRoll {
     // Calculate dice left to use
-    let mut leftover = rules.dice.to_owned();
+    let mut leftover = rules.dice.0.to_owned();
     'next_have: for &(have_die, _) in &have.0 {
         for (left_die, freq) in &mut leftover {
             if have_die == *left_die {
@@ -197,25 +184,25 @@ pub fn probability_to_roll(have: PartialHand, rules: &rules::DiceRules) -> Proba
     convert = r#"{ format!("{}{}{},{}", state.compact_fmt(), rules.short_name, hand.compact_fmt(), rerolls) }"#
 )]
 pub fn choose_reroll(
-    state: State,
-    hand: PartialHand,
-    rerolls: i8,
+    state: &State,
+    hand: &PartialHand,
+    rerolls: Rerolls,
     rules: &rules::Rules,
 ) -> RerollRecomm {
     // End of turn or chip used
     if rerolls == 0 || rerolls == -2 {
-        let stop_now = choose_field(state.clone(), hand.clone(), rules);
+        let stop_now = choose_field(state, hand, rules);
         // Try chip if we have some left and have not used one already
         if state.chips > 0 && rerolls == 0 {
-            let mut chip_off = state;
+            let mut chip_off = state.clone();
             chip_off.chips -= 1;
-            let use_chip = choose_reroll(chip_off, hand.clone(), rerolls - 1, rules);
+            let use_chip = choose_reroll(&chip_off, hand, rerolls - 1, rules);
             if use_chip.expectation > stop_now.expectation {
                 return use_chip;
             }
         }
         return RerollRecomm {
-            hand,
+            hand: hand.clone(),
             state: stop_now.state,
             expectation: stop_now.expectation,
         };
@@ -244,15 +231,9 @@ pub fn choose_reroll(
         .into_par_iter()
         .map(|partial_hand| HandChance {
             hand: partial_hand.clone(),
-            expectation: if partial_hand.0.len()
-                == dice_rules
-                    .dice
-                    .iter()
-                    .map(|(_, freq)| freq)
-                    .sum::<Frequency>() as usize
-            {
+            expectation: if partial_hand.is_full_hand(&dice_rules.dice) {
                 // recommendation to stop, no need to recalculate
-                choose_field(state.clone(), hand.clone(), rules).expectation
+                choose_field(state, hand, rules).expectation
             } else {
                 // expectation of this choice is all chances of hands multiplied with their
                 // expecation values summed up
@@ -260,7 +241,7 @@ pub fn choose_reroll(
                     .table
                     .iter()
                     .map(|(hand, probability)| {
-                        let reroll = choose_reroll(state.clone(), hand.clone(), rerolls - 1, rules);
+                        let reroll = choose_reroll(state, hand, rerolls - 1, rules);
                         probability.0 * reroll.expectation
                     })
                     .sum()
@@ -270,7 +251,7 @@ pub fn choose_reroll(
         .unwrap();
     RerollRecomm {
         hand: best.hand,
-        state,
+        state: state.clone(),
         expectation: best.expectation,
     }
 }
@@ -286,7 +267,7 @@ pub fn choose_reroll(
     key = "String",
     convert = r#"{ format!("{}{}{}", state.compact_fmt(), rules.short_name, have.compact_fmt()) }"#
 )]
-pub fn choose_field(state: State, have: PartialHand, rules: &rules::Rules) -> FieldRecomm {
+pub fn choose_field(state: &State, have: &PartialHand, rules: &rules::Rules) -> FieldRecomm {
     let fields_rules = &rules.fields;
 
     let hand: Hand = have.0.iter().map(|&(_, pip)| pip).collect();
@@ -359,7 +340,7 @@ pub fn choose_field(state: State, have: PartialHand, rules: &rules::Rules) -> Fi
             }
 
             let hand = PartialHand(Vec::new());
-            let expectation = choose_reroll(new_state.clone(), hand, THROWS - 1, rules).expectation;
+            let expectation = choose_reroll(&new_state, &hand, THROWS - 1, rules).expectation;
             FieldRecomm {
                 section,
                 field,
@@ -473,7 +454,7 @@ mod tests {
                 PartialHand(vec![((1, 2), 1)]),
                 &rules::DiceRules {
                     short_name: 'w',
-                    dice: vec![((1, 2), 4)]
+                    dice: Dice(vec![((1, 2), 4)]),
                 }
             ),
             ProbabilitiesToRoll {
@@ -510,7 +491,7 @@ mod tests {
             PartialHand(vec![((1, 6), 1)]),
             &rules::DiceRules {
                 short_name: 'x',
-                dice: Vec::new(),
+                dice: Dice(Vec::new()),
             },
         );
     }
@@ -523,7 +504,7 @@ mod tests {
             short_name: 'y',
             dice: rules::DiceRules {
                 short_name: 'y',
-                dice: vec![((1, 2), 1)],
+                dice: Dice(vec![((1, 2), 1)]),
             },
             chips: 2,
             fields: [
@@ -552,13 +533,13 @@ mod tests {
             scored_yahtzee: false,
             chips: 2,
         };
-        let rec = choose_reroll(state.clone(), unready_hand.clone(), 0, &simple_rules);
+        let rec = choose_reroll(&state, &unready_hand, 0, &simple_rules);
         assert_eq!(rec.hand, empty_hand);
         assert_eq!(rec.state.chips, 1);
         assert_eq!(rec.expectation, 0.5);
 
         // With no rerolls and a 2 thrown, the chip should not be used
-        let rec = choose_reroll(state.clone(), ready_hand.clone(), 0, &simple_rules);
+        let rec = choose_reroll(&state, &ready_hand, 0, &simple_rules);
         assert_eq!(rec.hand, ready_hand.clone());
         assert_eq!(rec.state.chips, 2);
         assert_eq!(rec.expectation, 1.0);
@@ -566,12 +547,12 @@ mod tests {
         // With a reroll and no 2 thrown, the reroll should be used
         // Simpler assuming no chips
         state.chips = 0;
-        let rec = choose_reroll(state.clone(), unready_hand.clone(), 1, &simple_rules);
+        let rec = choose_reroll(&state, &unready_hand, 1, &simple_rules);
         assert_eq!(rec.hand, empty_hand);
         assert_eq!(rec.expectation, 0.5);
 
         // With a reroll and a 2 thrown, no reroll should happen
-        let rec = choose_reroll(state.clone(), ready_hand.clone(), 1, &simple_rules);
+        let rec = choose_reroll(&state, &ready_hand, 1, &simple_rules);
         assert_eq!(rec.hand, ready_hand.clone());
         assert_eq!(rec.expectation, 1.0);
     }
@@ -594,7 +575,7 @@ mod tests {
             short_name: 'z',
             dice: rules::DiceRules {
                 short_name: 'z',
-                dice: vec![((1, 2), 2)],
+                dice: Dice(vec![((1, 2), 2)]),
             },
             chips: 0,
             fields: [
@@ -647,7 +628,7 @@ mod tests {
             scored_yahtzee: false,
             chips: 0,
         };
-        let rec = choose_field(state.clone(), pair_of_twos.clone(), &simple_rules);
+        let rec = choose_field(&state, &pair_of_twos, &simple_rules);
         assert_eq!(rec.section, LS);
         assert_eq!(rec.field, 4);
         assert_eq!(rec.state.score[LS], 4 + 1);
@@ -659,7 +640,7 @@ mod tests {
             [true].repeat(2),
             [[true].repeat(4), [false].repeat(2)].concat(),
         ];
-        let rec = choose_field(state.clone(), pair_of_twos.clone(), &simple_rules);
+        let rec = choose_field(&state, &pair_of_twos, &simple_rules);
         assert_eq!(rec.section, LS);
         assert_eq!(rec.field, YAHTZEE_INDEX);
         assert_eq!(rec.state.score[LS], 4 + 1);
@@ -669,14 +650,14 @@ mod tests {
         // Test awardation of upper section bonus
         state.used = [vec![false, true], [true].repeat(6)];
         let hand = PartialHand(vec![((1, 2), 1), ((1, 2), 2)]);
-        let rec = choose_field(state.clone(), hand, &simple_rules);
+        let rec = choose_field(&state, &hand, &simple_rules);
         assert_eq!(rec.section, US);
         assert_eq!(rec.field, 0);
         assert_eq!(rec.state.score[US], 2);
         // not asserting rec.state.used -- don't care at this point
 
         // Test no awardation of upper section bonus
-        let rec = choose_field(state.clone(), pair_of_twos.clone(), &simple_rules);
+        let rec = choose_field(&state, &pair_of_twos, &simple_rules);
         assert_eq!(rec.section, US);
         assert_eq!(rec.field, 0);
         assert_eq!(rec.state.score[US], 0);
@@ -684,7 +665,7 @@ mod tests {
         // Test awardation of Yahtzee bonus
         state.used = [[true].repeat(2), ls_full_except_chance.clone()];
         state.scored_yahtzee = true;
-        let rec = choose_field(state.clone(), pair_of_twos.clone(), &simple_rules);
+        let rec = choose_field(&state, &pair_of_twos, &simple_rules);
         assert_eq!(rec.section, LS);
         assert_eq!(rec.field, 4);
         assert_eq!(rec.state.score[LS], 4 + 1 + 1);

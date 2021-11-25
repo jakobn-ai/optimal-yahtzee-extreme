@@ -3,6 +3,7 @@ mod global;
 mod hands;
 mod rules;
 mod strategy;
+mod view_model;
 mod yahtzee_bonus_rules;
 
 use anyhow::{ensure, Result};

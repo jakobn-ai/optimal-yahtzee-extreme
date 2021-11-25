@@ -38,8 +38,8 @@ fn warm_up_caches() {
                 scored_yahtzee: false,
                 chips: rules.chips,
             };
-            let hand = strategy::PartialHand(Vec::new());
-            strategy::choose_reroll(state, hand, THROWS, &rules);
+            let hand = PartialHand(Vec::new());
+            strategy::choose_reroll(&state, &hand, THROWS, &rules);
         });
 }
 
@@ -118,9 +118,9 @@ mod tests {
             scored_yahtzee: false,
             chips: 0,
         };
-        let hand = strategy::PartialHand(Vec::new());
+        let hand = PartialHand(Vec::new());
         let rerolls = 1;
-        let reroll_recomm = strategy::choose_reroll(state.clone(), hand.clone(), rerolls, &rules);
+        let reroll_recomm = strategy::choose_reroll(&state, &hand, rerolls, &rules);
         let reroll_key = format!(
             "{}{}{},{}",
             state.compact_fmt(),
@@ -159,7 +159,7 @@ mod tests {
     #[test]
     fn test_restore_caches() {
         // Dummy test data
-        let hand = strategy::PartialHand(Vec::new());
+        let hand = PartialHand(Vec::new());
         let rules = rules::build_rules(false, bonus::FORCED_JOKER);
         let probabilities_to_roll = strategy::ProbabilitiesToRoll {
             table: HashMap::new(),
@@ -231,10 +231,10 @@ mod tests {
             probabilities_to_roll,
         );
         assert_eq!(
-            strategy::choose_reroll(state.clone(), hand.clone(), rerolls, &rules),
+            strategy::choose_reroll(&state, &hand, rerolls, &rules),
             reroll_recomm,
         );
-        assert_eq!(strategy::choose_field(state, hand, &rules), field_recomm);
+        assert_eq!(strategy::choose_field(&state, &hand, &rules), field_recomm);
 
         // Test version mismatch
         version.minor += 1;

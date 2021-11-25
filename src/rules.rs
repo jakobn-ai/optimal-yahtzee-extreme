@@ -8,9 +8,7 @@ pub struct DiceRules {
     /// Short name for caching
     pub short_name: char,
     /// Actual rules
-    /// * Minimum and maximum pip, e.g. (1, 6) for d6
-    /// * Frequency, e.g. 5 for key 6 in regular Yahtzee (5 d6)
-    pub dice: Vec<(Die, Frequency)>,
+    pub dice: Dice,
 }
 /// Rules for reroll chips used, specify amount per player
 type ChipsRules = Chips;
@@ -184,12 +182,12 @@ pub fn build_rules(extreme: bool, yahtzee_bonus: bonus::Rules) -> Rules {
     // Five d6
     let mut dice = DiceRules {
         short_name: 'a',
-        dice: vec![((1, 6), 5)],
+        dice: Dice(vec![((1, 6), 5)]),
     };
     if extreme {
         dice.short_name = 'b';
         // One d10, starting at 0
-        dice.dice.push(((0, 9), 1));
+        dice.dice.0.push(((0, 9), 1));
     }
     let chips = if extreme { 3 } else { 0 };
 
@@ -232,7 +230,7 @@ mod tests {
                 rules.dice,
                 DiceRules {
                     short_name: 'a',
-                    dice: vec![((1, 6), 5)]
+                    dice: Dice(vec![((1, 6), 5)]),
                 }
             );
             assert_eq!(rules.chips, 0);
@@ -286,7 +284,7 @@ mod tests {
             rules.dice,
             DiceRules {
                 short_name: 'b',
-                dice: vec![((1, 6), 5), ((0, 9), 1)],
+                dice: Dice(vec![((1, 6), 5), ((0, 9), 1)]),
             },
         );
         assert_eq!(rules.chips, 3);
