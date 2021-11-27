@@ -29,7 +29,7 @@ pub type Field = usize;
 /// Combination of dice
 /// * Minimum and maximum pip, e.g. (1, 6) for d6
 /// * Frequency, e.g. 5 for key 6 in regular Yahtzee (5 d6)
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Dice(pub Vec<(Die, Frequency)>);
 
 /// Partial hand, specifying dice and pips

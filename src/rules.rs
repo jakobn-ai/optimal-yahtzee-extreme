@@ -2,8 +2,10 @@ use crate::global::*;
 use crate::hands;
 use crate::yahtzee_bonus_rules as bonus;
 
+use std::fmt;
+
 /// Rules for dice used
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DiceRules {
     /// Short name for caching
     pub short_name: char,
@@ -15,6 +17,7 @@ type ChipsRules = Chips;
 /// Function that calculates a score from a hand
 type ScoreFunction = fn(&HandSlice) -> Score;
 /// Rule for field on score card
+#[derive(Clone)]
 pub struct SectionRule {
     /// Name of field for user interaction
     pub name: String,
@@ -26,7 +29,7 @@ type SectionRules = Vec<SectionRule>;
 /// Rules for allowed fields (upper and lower section)
 type FieldsRules = [SectionRules; 2];
 /// Rule for upper section bonus
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct USBonusRules {
     /// Score required to receive upper section bonus (63 in regular Yahtzee)
     pub threshold: Score,
@@ -35,6 +38,7 @@ pub struct USBonusRules {
 }
 
 /// Rules for a game
+#[derive(Clone)]
 pub struct Rules {
     pub short_name: char,
     pub dice: DiceRules,
@@ -42,6 +46,20 @@ pub struct Rules {
     pub fields: FieldsRules,
     pub us_bonus: USBonusRules,
     pub yahtzee_bonus: bonus::Rules,
+}
+
+impl fmt::Debug for Rules {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Rules")
+            .field("short_name", &self.short_name)
+            .finish()
+    }
+}
+
+impl PartialEq for Rules {
+    fn eq(&self, other: &Self) -> bool {
+        self.short_name == other.short_name
+    }
 }
 
 /// Build upper section fields rules
