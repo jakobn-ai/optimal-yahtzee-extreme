@@ -311,6 +311,7 @@ pub fn choose_field(state: &State, have: &PartialHand, rules: &rules::Rules) -> 
         if final_state.score[US] >= rules.us_bonus.threshold {
             final_state.score[US] += rules.us_bonus.bonus;
         }
+        final_state.used[section][field] = true;
 
         let expectation = final_state.score.iter().sum::<Score>() as Expectation;
         return FieldRecomm {
