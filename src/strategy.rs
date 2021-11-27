@@ -419,9 +419,44 @@ pub mod persistent_caches {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
     use crate::hands;
+
+    /// Very simple game rules for testing:
+    /// One coin, you have to throw a 2, which awards you one point
+    pub fn very_simple_rules() -> rules::Rules {
+        rules::Rules {
+            short_name: 'y',
+            dice: rules::DiceRules {
+                short_name: 'y',
+                dice: Dice(vec![((1, 2), 1)]),
+            },
+            chips: 2,
+            fields: [
+                Vec::new(),
+                vec![rules::SectionRule {
+                    name: "Throw 2".to_string(),
+                    function: |hand| (hand[0] - 1) as Score,
+                }],
+            ],
+            us_bonus: rules::USBonusRules {
+                threshold: 2,
+                bonus: 0,
+            },
+            yahtzee_bonus: bonus::NONE,
+        }
+    }
+
+    /// Very simple state corresponding to [`very_simple_rules()`](very_simple_rules)
+    pub fn very_simple_state() -> State {
+        State {
+            score: [0, 0],
+            used: [Vec::new(), vec![false]],
+            scored_yahtzee: false,
+            chips: 0,
+        }
+    }
 
     #[test]
     fn test_compact_fmt_partial_hand() {
@@ -499,62 +534,36 @@ mod tests {
 
     #[test]
     fn test_choose_reroll() {
-        // Simple game rules for testing
-        // One coin, you have to throw a 2, which awards you one point
-        let simple_rules = rules::Rules {
-            short_name: 'y',
-            dice: rules::DiceRules {
-                short_name: 'y',
-                dice: Dice(vec![((1, 2), 1)]),
-            },
-            chips: 2,
-            fields: [
-                Vec::new(),
-                vec![rules::SectionRule {
-                    name: "Throw 1".to_string(),
-                    function: |hand| (hand[0] - 1) as Score,
-                }],
-            ],
-            us_bonus: rules::USBonusRules {
-                threshold: 2,
-                bonus: 0,
-            },
-            yahtzee_bonus: bonus::NONE,
-        };
+        let rules = very_simple_rules();
+        let mut state = very_simple_state();
 
         let ready_hand = PartialHand(vec![((1, 2), 2)]);
         let unready_hand = PartialHand(vec![((1, 2), 1)]);
         let empty_hand = PartialHand(Vec::new());
 
+        // With a reroll and no 2 thrown, the reroll should be used
+        // Simpler assuming no chips
+        let rec = choose_reroll(&state, &unready_hand, 1, &rules);
+        assert_eq!(rec.hand, empty_hand);
+        assert_eq!(rec.expectation, 0.5);
+
+        // With a reroll and a 2 thrown, no reroll should happen
+        let rec = choose_reroll(&state, &ready_hand, 1, &rules);
+        assert_eq!(rec.hand, ready_hand.clone());
+        assert_eq!(rec.expectation, 1.0);
+
         // With no rerolls and no 2 thrown yet, the chip should be used
         // However, only one chip can be used
-        let mut state = State {
-            score: [0, 0],
-            used: [Vec::new(), vec![false]],
-            scored_yahtzee: false,
-            chips: 2,
-        };
-        let rec = choose_reroll(&state, &unready_hand, 0, &simple_rules);
+        state.chips = 2;
+        let rec = choose_reroll(&state, &unready_hand, 0, &rules);
         assert_eq!(rec.hand, empty_hand);
         assert_eq!(rec.state.chips, 1);
         assert_eq!(rec.expectation, 0.5);
 
         // With no rerolls and a 2 thrown, the chip should not be used
-        let rec = choose_reroll(&state, &ready_hand, 0, &simple_rules);
+        let rec = choose_reroll(&state, &ready_hand, 0, &rules);
         assert_eq!(rec.hand, ready_hand.clone());
         assert_eq!(rec.state.chips, 2);
-        assert_eq!(rec.expectation, 1.0);
-
-        // With a reroll and no 2 thrown, the reroll should be used
-        // Simpler assuming no chips
-        state.chips = 0;
-        let rec = choose_reroll(&state, &unready_hand, 1, &simple_rules);
-        assert_eq!(rec.hand, empty_hand);
-        assert_eq!(rec.expectation, 0.5);
-
-        // With a reroll and a 2 thrown, no reroll should happen
-        let rec = choose_reroll(&state, &ready_hand, 1, &simple_rules);
-        assert_eq!(rec.hand, ready_hand.clone());
         assert_eq!(rec.expectation, 1.0);
     }
 
