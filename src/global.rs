@@ -33,8 +33,11 @@ pub type Field = usize;
 pub struct Dice(pub Vec<(Die, Frequency)>);
 
 /// Partial hand, specifying dice and pips
+pub type PartialHandVec = Vec<(Die, Pip)>;
+
+/// Wrap in struct for derives
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct PartialHand(pub Vec<(Die, Pip)>);
+pub struct PartialHand(pub PartialHandVec);
 
 impl PartialHand {
     /// Compact format for cache keys
@@ -51,6 +54,11 @@ impl PartialHand {
         self.0.len() == dice.0.iter().map(|(_, freq)| freq).sum::<Frequency>() as usize
     }
 }
+
+pub const D6_MIN: u8 = 1;
+pub const D6_MAX: u8 = 6;
+pub const D10_MIN: u8 = 0;
+pub const D10_MAX: u8 = 9;
 
 /// Permitted throws per round
 pub const THROWS: i8 = 3;

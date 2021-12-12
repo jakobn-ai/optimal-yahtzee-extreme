@@ -1,6 +1,7 @@
 mod caching;
 mod global;
 mod hands;
+mod repl;
 mod rules;
 mod strategy;
 mod view_model;
@@ -28,5 +29,4 @@ fn main() -> Result<()> {
     }
 
     Ok(())
-    // TODO REPL
 }

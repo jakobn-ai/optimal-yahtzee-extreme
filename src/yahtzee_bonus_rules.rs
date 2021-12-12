@@ -20,6 +20,12 @@ pub struct Rules {
     pub rules: RulesFn,
 }
 
+impl PartialEq for Rules {
+    fn eq(&self, other: &Self) -> bool {
+        self.short_name == other.short_name
+    }
+}
+
 /// Score of a Yahtzee bonus
 pub const YAHTZEE_BONUS: Score = 100;
 

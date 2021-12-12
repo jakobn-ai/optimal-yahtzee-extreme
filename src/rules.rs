@@ -188,7 +188,7 @@ fn build_lower_section_rules(extreme: bool) -> SectionRules {
 /// # Arguments
 /// * `extreme` - build for Extreme variant
 pub fn build_rules(extreme: bool, yahtzee_bonus: bonus::Rules) -> Rules {
-    if extreme && yahtzee_bonus.short_name != bonus::NONE.short_name {
+    if extreme && yahtzee_bonus != bonus::NONE {
         panic!("Yahtzee Extreme with non-null bonus rules is undefined");
     }
 
@@ -200,12 +200,12 @@ pub fn build_rules(extreme: bool, yahtzee_bonus: bonus::Rules) -> Rules {
     // Five d6
     let mut dice = DiceRules {
         short_name: 'a',
-        dice: Dice(vec![((1, 6), 5)]),
+        dice: Dice(vec![((D6_MIN, D6_MAX), 5)]),
     };
     if extreme {
         dice.short_name = 'b';
         // One d10, starting at 0
-        dice.dice.0.push(((0, 9), 1));
+        dice.dice.0.push(((D10_MIN, D10_MAX), 1));
     }
     let chips = if extreme { 3 } else { 0 };
 

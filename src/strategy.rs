@@ -90,6 +90,7 @@ pub struct RerollRecomm {
 }
 
 /// Recommendation for which field to use for score
+// TODO should indicate whether this was a bonus
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct FieldRecomm {
     /// Section to choose
@@ -292,7 +293,7 @@ pub fn choose_field(state: &State, have: &PartialHand, rules: &rules::Rules) -> 
         })
         .collect();
     let yahtzee_bonus = state.scored_yahtzee
-        && rules.yahtzee_bonus.short_name != bonus::NONE.short_name
+        && rules.yahtzee_bonus != bonus::NONE
         && (fields_rules[LS][YAHTZEE_INDEX].function)(&hand) > 0;
     if available_fields.len() == 1 {
         // End of game
