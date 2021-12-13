@@ -60,8 +60,8 @@ pub const D6: (Pip, Pip) = (1, 6);
 /// Tuple for d10 pips
 pub const D10: (Pip, Pip) = (0, 9);
 
-/// Permitted throws per round
-pub const THROWS: i8 = 3;
+/// Permitted rerolls per round
+pub const REROLLS: i8 = 2;
 /// Index of upper section
 pub const US: usize = 0;
 /// Index of lower section

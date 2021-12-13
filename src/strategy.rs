@@ -57,7 +57,7 @@ impl State {
             score: [0, 0],
             used: [
                 [false].repeat(rules.fields[0].len()),
-                [true].repeat(rules.fields[1].len()),
+                [false].repeat(rules.fields[1].len()),
             ],
             scored_yahtzee: false,
             chips: rules.chips,
@@ -356,7 +356,7 @@ pub fn choose_field(state: &State, have: &PartialHand, rules: &rules::Rules) -> 
             }
 
             let hand = PartialHand(Vec::new());
-            let expectation = choose_reroll(&new_state, &hand, THROWS - 1, rules).expectation;
+            let expectation = choose_reroll(&new_state, &hand, REROLLS, rules).expectation;
             FieldRecomm {
                 section,
                 field,
@@ -465,12 +465,7 @@ pub mod tests {
 
     /// Very simple state corresponding to [`very_simple_rules()`](very_simple_rules)
     pub fn very_simple_state() -> State {
-        State {
-            score: [0, 0],
-            used: [Vec::new(), vec![false]],
-            scored_yahtzee: false,
-            chips: 0,
-        }
+        State::new_from_rules(&very_simple_rules())
     }
 
     #[test]
@@ -479,6 +474,19 @@ pub mod tests {
         assert_eq!(
             PartialHand(vec![((1, 2), 1), ((1, 2), 2)]).compact_fmt(),
             "1,2,1,1,2,2"
+        );
+    }
+
+    #[test]
+    fn test_new_state_from_rules() {
+        assert_eq!(
+            State::new_from_rules(&very_simple_rules()),
+            State {
+                score: [0, 0],
+                used: [Vec::new(), vec![false]],
+                scored_yahtzee: false,
+                chips: 2,
+            }
         );
     }
 
@@ -556,12 +564,6 @@ pub mod tests {
         let unready_hand = PartialHand(vec![((1, 2), 1)]);
         let empty_hand = PartialHand(Vec::new());
 
-        // With a reroll and no 2 thrown, the reroll should be used
-        // Simpler assuming no chips
-        let rec = choose_reroll(&state, &unready_hand, 1, &rules);
-        assert_eq!(rec.hand, empty_hand);
-        assert_eq!(rec.expectation, 0.5);
-
         // With a reroll and a 2 thrown, no reroll should happen
         let rec = choose_reroll(&state, &ready_hand, 1, &rules);
         assert_eq!(rec.hand, ready_hand.clone());
@@ -569,7 +571,6 @@ pub mod tests {
 
         // With no rerolls and no 2 thrown yet, the chip should be used
         // However, only one chip can be used
-        state.chips = 2;
         let rec = choose_reroll(&state, &unready_hand, 0, &rules);
         assert_eq!(rec.hand, empty_hand);
         assert_eq!(rec.state.chips, 1);
@@ -580,6 +581,13 @@ pub mod tests {
         assert_eq!(rec.hand, ready_hand.clone());
         assert_eq!(rec.state.chips, 2);
         assert_eq!(rec.expectation, 1.0);
+
+        // With a reroll and no 2 thrown, the reroll should be used
+        // Simpler assuming no chips
+        state.chips = 0;
+        let rec = choose_reroll(&state, &unready_hand, 1, &rules);
+        assert_eq!(rec.hand, empty_hand);
+        assert_eq!(rec.expectation, 0.5);
     }
 
     #[test]

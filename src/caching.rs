@@ -39,7 +39,7 @@ fn warm_up_caches() {
                 chips: rules.chips,
             };
             let hand = PartialHand(Vec::new());
-            strategy::choose_reroll(&state, &hand, THROWS, &rules);
+            strategy::choose_reroll(&state, &hand, REROLLS, &rules);
         });
 }
 

@@ -45,7 +45,7 @@ fn main() -> Result<()> {
     Ok(repl::run(view_model::ViewModel {
         rules,
         state,
-        rerolls: global::THROWS - 1,
+        rerolls: global::REROLLS,
     })?)
 }
 

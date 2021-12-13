@@ -46,7 +46,7 @@ impl ViewModel {
         if reroll_recomm.hand.is_full_hand(dice_rules) {
             let field_recomm = strategy::choose_field(&self.state, &hand, &self.rules);
             self.state = field_recomm.state;
-            self.rerolls = THROWS;
+            self.rerolls = REROLLS;
             return Ok(Recommendation::Field(
                 field_recomm.section,
                 field_recomm.field,
@@ -65,7 +65,8 @@ mod tests {
     #[test]
     fn test_recommend() {
         let rules = strategy::tests::very_simple_rules();
-        let state = strategy::tests::very_simple_state();
+        let mut state = strategy::tests::very_simple_state();
+        state.chips = 0;
 
         let mut view_model = ViewModel {
             rules,
@@ -83,7 +84,7 @@ mod tests {
         let mut recommendation = view_model.recommend(hand.clone());
         let expected_recommendation = Recommendation::Reroll(PartialHand(Vec::new()));
         // We should reroll
-        assert_eq!(recommendation, expected_recommendation);
+        assert_eq!(recommendation.unwrap(), expected_recommendation);
         expected_view_model_after_reroll.rerolls = 0;
         assert_eq!(view_model, expected_view_model_after_reroll);
 
@@ -92,10 +93,10 @@ mod tests {
 
         recommendation = view_model.recommend(hand);
         // We must use a field now
-        assert_eq!(recommendation, Recommendation::Field(1, 0));
+        assert_eq!(recommendation.unwrap(), Recommendation::Field(1, 0));
         expected_state_after_finish.used[1][0] = true;
         expected_view_model_after_finish.state = expected_state_after_finish;
-        expected_view_model_after_finish.rerolls = THROWS;
+        expected_view_model_after_finish.rerolls = REROLLS;
         assert_eq!(view_model, expected_view_model_after_finish);
     }
 }
