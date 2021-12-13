@@ -54,7 +54,7 @@ fn build_rules(game: &str) -> Result<rules::Rules> {
     if game == "extreme" {
         return Ok(rules::build_rules(true, yahtzee_bonus_rules::NONE));
     }
-    ["forced", "free", "original", "kniffel", "none"]
+    yahtzee_bonus_rules::ALL_VARIANTS_NAMES
         .iter()
         .enumerate()
         .find(|(_, &name)| name == game)

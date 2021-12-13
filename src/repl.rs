@@ -65,24 +65,31 @@ fn recommend(view_model: &mut ViewModel, input: &str) -> Result<String> {
     let mut split = input.split(' ');
     let d6s = split.next().unwrap().chars();
     let mut partial_hand: PartialHand = PartialHand(
-        d6s.map(|c| Ok(((D6_MIN, D6_MAX), c.to_string().parse()?)))
+        d6s.map(|c| Ok((D6, c.to_string().parse()?)))
             .collect::<Result<PartialHandVec>>()?,
     );
     if let Some(d10) = split.next() {
-        partial_hand.0.push(((D10_MIN, D10_MAX), d10.parse()?));
+        partial_hand.0.push((D10, d10.parse()?));
     }
     Ok(match view_model.recommend(partial_hand)? {
         Recommendation::Reroll(partial_hand) => {
             let mut iter = partial_hand.0.iter();
             let d6s = iter
                 .by_ref()
-                // TODO map_while?
-                .take_while(|(die, _)| *die == (D6_MIN, D6_MAX))
-                .map(|&(_, pip)| pip.to_string())
+                .map_while(|&(die, pip)| match die {
+                    D6 => Some(pip.to_string()),
+                    _ => None,
+                })
                 .collect::<Vec<String>>();
-            let mut out = format!("You should keep d6 {}", &d6s[..].join(", "));
+            let mut out = String::new();
+            if !d6s.is_empty() {
+                out = format!("You should keep d6 {}", &d6s[..].join(", "));
+            }
             if iter.next().is_some() {
-                out += " and the d10";
+                out += match out.as_str() {
+                    "" => "You should keep the d10",
+                    _ => " and the d10",
+                }
             }
             out.push('.');
             out

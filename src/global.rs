@@ -55,10 +55,10 @@ impl PartialHand {
     }
 }
 
-pub const D6_MIN: u8 = 1;
-pub const D6_MAX: u8 = 6;
-pub const D10_MIN: u8 = 0;
-pub const D10_MAX: u8 = 9;
+/// Tuple for d6 pips
+pub const D6: (Pip, Pip) = (1, 6);
+/// Tuple for d10 pips
+pub const D10: (Pip, Pip) = (0, 9);
 
 /// Permitted throws per round
 pub const THROWS: i8 = 3;

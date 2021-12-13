@@ -8,7 +8,6 @@ args:
         long: cache-write
         value_name: FILE
         help: Pre-cache and write to FILE
-    # TODO is it required like that?
     - game:
         help: |
             Game to play. Allowed options:

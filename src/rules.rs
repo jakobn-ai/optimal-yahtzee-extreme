@@ -200,12 +200,12 @@ pub fn build_rules(extreme: bool, yahtzee_bonus: bonus::Rules) -> Rules {
     // Five d6
     let mut dice = DiceRules {
         short_name: 'a',
-        dice: Dice(vec![((D6_MIN, D6_MAX), 5)]),
+        dice: Dice(vec![(D6, 5)]),
     };
     if extreme {
         dice.short_name = 'b';
         // One d10, starting at 0
-        dice.dice.0.push(((D10_MIN, D10_MAX), 1));
+        dice.dice.0.push((D10, 1));
     }
     let chips = if extreme { 3 } else { 0 };
 
