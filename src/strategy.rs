@@ -50,6 +50,20 @@ impl Clone for State {
 }
 
 impl State {
+    // TODO test
+    /// Build initial state from rules
+    pub fn new_from_rules(rules: &rules::Rules) -> Self {
+        State {
+            score: [0, 0],
+            used: [
+                [false].repeat(rules.fields[0].len()),
+                [true].repeat(rules.fields[1].len()),
+            ],
+            scored_yahtzee: false,
+            chips: rules.chips,
+        }
+    }
+
     /// Compact format for cache keys
     pub fn compact_fmt(&self) -> String {
         format!(

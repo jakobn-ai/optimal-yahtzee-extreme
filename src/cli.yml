@@ -8,3 +8,13 @@ args:
         long: cache-write
         value_name: FILE
         help: Pre-cache and write to FILE
+    # TODO is it required like that?
+    - game:
+        help: |
+            Game to play. Allowed options:
+            extreme  - Yahtzee Extreme
+            forced   - Forced choice joker, used in regular Yahtzee
+            free     - Free choice joker, a popular alternative
+            original - Original 1956 rules
+            kniffel  - Kniffel rules, as published in German-speaking countries
+            none     - No Yahtzee bonus

@@ -1,5 +1,3 @@
-// TODO start
-#![allow(dead_code)]
 use crate::global::*;
 use crate::view_model::{Recommendation, ViewModel};
 use crate::yahtzee_bonus_rules as bonus;
@@ -9,7 +7,7 @@ use std::io;
 use anyhow::Result;
 use linefeed::{Interface, ReadResult};
 
-fn run(mut view_model: ViewModel) -> io::Result<()> {
+pub fn run(mut view_model: ViewModel) -> io::Result<()> {
     let reader = Interface::new("")?;
     reader.set_prompt(">>> ")?;
     while let ReadResult::Input(input) = reader.read_line()? {

@@ -21,7 +21,7 @@ pub struct ViewModel {
     /// Strategy state player is in
     pub state: strategy::State,
     /// Rerolls in ongoing turn
-    rerolls: Rerolls,
+    pub rerolls: Rerolls,
 }
 
 impl ViewModel {
