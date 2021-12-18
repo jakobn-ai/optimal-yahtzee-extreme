@@ -49,7 +49,6 @@ fn main() -> Result<()> {
     })?)
 }
 
-// TODO test
 fn build_rules(game: &str) -> Result<rules::Rules> {
     if game == "extreme" {
         return Ok(rules::build_rules(true, yahtzee_bonus_rules::NONE));
@@ -60,4 +59,16 @@ fn build_rules(game: &str) -> Result<rules::Rules> {
         .find(|(_, &name)| name == game)
         .map(|(i, _)| rules::build_rules(false, yahtzee_bonus_rules::ALL_VARIANTS[i].clone()))
         .ok_or_else(|| anyhow!("Unknown game: {}", game))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_rules() {
+        assert_eq!(build_rules("extreme").unwrap().short_name, 'f');
+        assert_eq!(build_rules("forced").unwrap().short_name, 'a');
+        assert!(build_rules("null").is_err());
+    }
 }

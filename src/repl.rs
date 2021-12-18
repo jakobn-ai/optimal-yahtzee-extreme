@@ -31,7 +31,7 @@ fn output_state(view_model: &ViewModel) -> Result<String> {
     Ok(format!(
         "{}{}{}{}",
         format!(
-            "You have scored {} in the upper section and {} in the lower section.\n",
+            "You have scored {} in the upper section and {} in the lower section.",
             state.score[0], state.score[1],
         ),
         rules
@@ -51,7 +51,7 @@ fn output_state(view_model: &ViewModel) -> Result<String> {
             true => String::new(),
             _ => format!(
                 "\nYou have {}scored a Yahtzee.",
-                if state.scored_yahtzee { "not " } else { "" },
+                if !state.scored_yahtzee { "not " } else { "" },
             ),
         },
         match rules.chips == 0 {
@@ -103,4 +103,54 @@ fn recommend(view_model: &mut ViewModel, input: &str) -> Result<String> {
     })
 }
 
-// TODO tests
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::rules;
+    use crate::strategy;
+
+    #[test]
+    fn test_output_state() {
+        let mut rules = strategy::tests::very_simple_rules();
+        let mut state = strategy::tests::very_simple_state();
+
+        rules.fields[0] = vec![
+            rules::SectionRule {
+                name: String::from("Unwinnable 1"),
+                function: |_| 0,
+            },
+            rules::SectionRule {
+                name: String::from("Unwinnable 2"),
+                function: |_| 0,
+            },
+        ];
+        rules.yahtzee_bonus = bonus::FORCED_JOKER;
+
+        state.used[0] = vec![true, false];
+
+        let expected_fmt = "You have scored 0 in the upper section and 0 in the lower section.
+Unwinnable 1: used
+Unwinnable 2: unused
+Throw 2: unused
+You have {}scored a Yahtzee.
+You have 2 chip(s) left.";
+
+        let mut view_model = ViewModel {
+            rules,
+            state,
+            rerolls: 0,
+        };
+        assert_eq!(
+            output_state(&view_model).unwrap(),
+            expected_fmt.replace("{}", "not "),
+        );
+        view_model.state.scored_yahtzee = true;
+        assert_eq!(
+            output_state(&view_model).unwrap(),
+            expected_fmt.replace("{}", ""),
+        );
+    }
+}
+
+// TODO test recommend

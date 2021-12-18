@@ -50,7 +50,6 @@ impl Clone for State {
 }
 
 impl State {
-    // TODO test
     /// Build initial state from rules
     pub fn new_from_rules(rules: &rules::Rules) -> Self {
         State {
