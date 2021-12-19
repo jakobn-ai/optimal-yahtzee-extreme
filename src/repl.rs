@@ -151,6 +151,10 @@ You have 2 chip(s) left.";
             expected_fmt.replace("{}", ""),
         );
     }
+
+    #[test]
+    fn test_recommend() {
+    }
 }
 
 // TODO test recommend

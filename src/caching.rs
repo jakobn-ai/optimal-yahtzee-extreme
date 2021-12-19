@@ -29,15 +29,7 @@ fn warm_up_caches() {
         .chain([(true, bonus::NONE)].iter().cloned())
         .for_each(|(extreme, yahtzee_bonus)| {
             let rules = rules::build_rules(extreme, yahtzee_bonus);
-            let state = strategy::State {
-                score: [0, 0],
-                used: [
-                    vec![false; rules.fields[US].len()],
-                    vec![false; rules.fields[LS].len()],
-                ],
-                scored_yahtzee: false,
-                chips: rules.chips,
-            };
+            let state = strategy::State::new_from_rules(&rules);
             let hand = PartialHand(Vec::new());
             strategy::choose_reroll(&state, &hand, REROLLS, &rules);
         });
@@ -109,15 +101,11 @@ mod tests {
         // Smallest possible call to all cached strategy functions
         let rules = rules::build_rules(false, bonus::FORCED_JOKER);
         let us_fields = rules.fields[US].len();
-        let state = strategy::State {
-            score: [0, 0],
-            used: [
-                vec![true; rules.fields[US].len()],
-                [[true].repeat(us_fields - 1), vec![false]].concat(),
-            ],
-            scored_yahtzee: false,
-            chips: 0,
-        };
+        let mut state = strategy::State::new_from_rules(&rules);
+        state.used = [
+            vec![true; rules.fields[US].len()],
+            [[true].repeat(us_fields - 1), vec![false]].concat(),
+        ];
         let hand = PartialHand(Vec::new());
         let rerolls = 1;
         let reroll_recomm = strategy::choose_reroll(&state, &hand, rerolls, &rules);
@@ -164,15 +152,11 @@ mod tests {
         let probabilities_to_roll = strategy::ProbabilitiesToRoll {
             table: HashMap::new(),
         };
-        let state = strategy::State {
-            score: [0, 0],
-            used: [
-                vec![true; rules.fields[US].len()],
-                vec![true; rules.fields[LS].len()],
-            ],
-            scored_yahtzee: false,
-            chips: 0,
-        };
+        let mut state = strategy::State::new_from_rules(&rules);
+        state.used = [
+            vec![true; rules.fields[US].len()],
+            vec![true; rules.fields[LS].len()],
+        ];
         let rerolls = 0;
         let expectation = 0.0;
         let reroll_recomm = strategy::RerollRecomm {

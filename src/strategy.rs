@@ -653,13 +653,10 @@ pub mod tests {
 
         // Pair of Twos hits lower expectation value with All Twos, but it is not available,
         // but it also scores higher than Count Aces, so Chance should be used.
-        let mut state = State {
-            // Some base score out of thin air to ensure it is really added
-            score: [0, 1],
-            used: [vec![false, true], ls_full_except_chance.clone()],
-            scored_yahtzee: false,
-            chips: 0,
-        };
+        let mut state = State::new_from_rules(&simple_rules);
+        // Some base score out of thin air to ensure it is really added
+        state.score[1] = 1;
+        state.used = [vec![false, true], ls_full_except_chance.clone()];
         let rec = choose_field(&state, &pair_of_twos, &simple_rules);
         assert_eq!(rec.section, LS);
         assert_eq!(rec.field, 4);
