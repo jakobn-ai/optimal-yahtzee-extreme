@@ -63,11 +63,14 @@ fn output_state(view_model: &ViewModel) -> Result<String> {
 
 fn recommend(view_model: &mut ViewModel, input: &str) -> Result<String> {
     let mut split = input.split(' ');
-    let d6s = split.next().unwrap().chars();
-    let mut partial_hand: PartialHand = PartialHand(
-        d6s.map(|c| Ok((D6, c.to_string().parse()?)))
-            .collect::<Result<PartialHandVec>>()?,
-    );
+    let d6_chars = split.next().unwrap().chars();
+    // TODO does this unwrap do what we think it does?
+    let mut d6s = d6_chars
+        .map(|c| c.to_string().parse().unwrap())
+        .collect::<Vec<Pip>>();
+    d6s.sort_unstable();
+    let mut partial_hand: PartialHand =
+        PartialHand(d6s.iter().map(|&p| (D6, p)).collect::<PartialHandVec>());
     if let Some(d10) = split.next() {
         partial_hand.0.push((D10, d10.parse()?));
     }
@@ -154,7 +157,37 @@ You have 2 chip(s) left.";
 
     #[test]
     fn test_recommend() {
+        let rules = rules::build_rules(true, bonus::NONE);
+        let mut state = strategy::State::new_from_rules(&rules);
+        state.used = [
+            vec![true; rules.fields[US].len()],
+            [[true].repeat(rules.fields[LS].len() - 1), vec![false]].concat(),
+        ];
+        state.chips = 0;
+        let view_model = ViewModel {
+            rules,
+            state,
+            rerolls: 1,
+        };
+
+        assert_eq!(
+            recommend(&mut view_model.clone(), "11111 0").unwrap(),
+            String::from("You should reroll altogether.")
+        );
+        assert_eq!(
+            recommend(&mut view_model.clone(), "11611 0").unwrap(),
+            String::from("You should keep d6 6.")
+        );
+        assert_eq!(
+            recommend(&mut view_model.clone(), "11111 9").unwrap(),
+            String::from("You should keep the d10.")
+        );
+        assert_eq!(
+            recommend(&mut view_model.clone(), "61116 9").unwrap(),
+            String::from("You should keep the d10 and d6 6, 6.")
+        );
+
+        assert!(recommend(&mut view_model.clone(), "11111").is_err());
+        assert!(recommend(&mut view_model.clone(), "not numbers").is_err());
     }
 }
-
-// TODO test recommend

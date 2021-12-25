@@ -238,7 +238,7 @@ pub fn choose_reroll(
                     hand.0.push(el);
                     hand
                 })
-                .collect::<Vec<PartialHand>>(),
+                .collect::<Vec<_>>(),
         )
     }
     let best = possible_hands
@@ -261,6 +261,7 @@ pub fn choose_reroll(
                     .sum()
             },
         })
+        // need explicit reduce, `Ord` is not implemented for floats
         .reduce_with(|a, b| if a.expectation > b.expectation { a } else { b })
         .unwrap();
     RerollRecomm {

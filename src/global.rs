@@ -49,6 +49,7 @@ impl PartialHand {
             .unwrap_or_else(|| String::from(""))
     }
 
+    // TODO tests
     /// Decide whether this is a full hand according to rules `dice`
     pub fn is_full_hand(&self, dice: &Dice) -> bool {
         self.0.len() == dice.0.iter().map(|(_, freq)| freq).sum::<Frequency>() as usize

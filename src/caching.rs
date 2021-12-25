@@ -96,6 +96,16 @@ mod tests {
     use std::env::temp_dir;
     use std::fs::remove_file;
 
+    use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
+    macro_rules! assert_subset {
+        ($cache:expr, $comparison:expr) => {
+            $cache
+                .into_par_iter()
+                .for_each(|(k, v)| assert_eq!($comparison.get(&k).unwrap(), &v));
+        };
+    }
+
     #[test]
     fn test_dump_caches() {
         // Smallest possible call to all cached strategy functions
@@ -129,7 +139,18 @@ mod tests {
         let caches: Caches = from_slice(&serialized).unwrap();
 
         assert_eq!(caches.version, crate_version!());
-        assert_eq!(caches.caches, persistent_caches::dump_caches());
+        let comparison = persistent_caches::dump_caches();
+        // Because other test functions might have modified the caches,
+        // check for subset rather than equality
+        assert_subset!(
+            caches.caches.probability_to_roll,
+            comparison.probability_to_roll
+        );
+        assert_subset!(
+            caches.caches.choose_reroll.clone(),
+            comparison.choose_reroll
+        );
+        assert_subset!(caches.caches.choose_field, comparison.choose_field);
         let cached_reroll = caches.caches.choose_reroll.get(&reroll_key).unwrap();
         assert_eq!(cached_reroll, &reroll_recomm);
 
