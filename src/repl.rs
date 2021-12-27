@@ -2,9 +2,10 @@ use crate::global::*;
 use crate::view_model::{Recommendation, ViewModel};
 use crate::yahtzee_bonus_rules as bonus;
 
+use core::num::ParseIntError;
 use std::io;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use linefeed::{Interface, ReadResult};
 
 pub fn run(mut view_model: ViewModel) -> io::Result<()> {
@@ -64,35 +65,36 @@ fn output_state(view_model: &ViewModel) -> Result<String> {
 fn recommend(view_model: &mut ViewModel, input: &str) -> Result<String> {
     let mut split = input.split(' ');
     let d6_chars = split.next().unwrap().chars();
-    // TODO does this unwrap do what we think it does?
-    let mut d6s = d6_chars
-        .map(|c| c.to_string().parse().unwrap())
-        .collect::<Vec<Pip>>();
-    d6s.sort_unstable();
+    let d6s = d6_chars
+        .map(|c| c.to_string().parse().map_err(|e: ParseIntError| anyhow!(e)))
+        .collect::<Result<Vec<_>>>()?;
     let mut partial_hand: PartialHand =
-        PartialHand(d6s.iter().map(|&p| (D6, p)).collect::<PartialHandVec>());
+        PartialHand(d6s.iter().map(|&p| (D6, p)).collect::<Vec<_>>());
     if let Some(d10) = split.next() {
         partial_hand.0.push((D10, d10.parse()?));
     }
     Ok(match view_model.recommend(partial_hand)? {
         Recommendation::Reroll(partial_hand) => {
-            let mut iter = partial_hand.0.iter();
-            let d6s = iter
-                .by_ref()
-                .map_while(|&(die, pip)| match die {
-                    D6 => Some(pip.to_string()),
-                    _ => None,
-                })
-                .collect::<Vec<String>>();
+            let mut iter = partial_hand.0.iter().peekable();
             let mut out = String::new();
-            if !d6s.is_empty() {
-                out = format!("You should keep d6 {}", &d6s[..].join(", "));
-            }
-            if iter.next().is_some() {
-                out += match out.as_str() {
-                    "" => "You should keep the d10",
-                    _ => " and the d10",
+            if let Some(peek) = iter.peek() {
+                if peek.0 == D10 {
+                    out = String::from("You should keep the d10");
+                    iter.next();
                 }
+            }
+            let d6s = iter.map(|(_, pip)| pip.to_string()).collect::<Vec<_>>();
+            if d6s.is_empty() {
+                if out.is_empty() {
+                    out = String::from("You should reroll altogether");
+                }
+            } else {
+                let d6 = &d6s[..].join(", ");
+                let recomm = match out.as_str() {
+                    "" => format!("You should keep d6 {}", d6),
+                    _ => format!(" and d6 {}", d6),
+                };
+                out += &recomm;
             }
             out.push('.');
             out
@@ -187,6 +189,8 @@ You have 2 chip(s) left.";
             String::from("You should keep the d10 and d6 6, 6.")
         );
 
+        // XXX It would be cleaner to test this and the sorting of pips from ViewModel, but with
+        // the current design, this is quite some fewer LOC. Might be refactored.
         assert!(recommend(&mut view_model.clone(), "11111").is_err());
         assert!(recommend(&mut view_model.clone(), "not numbers").is_err());
     }
