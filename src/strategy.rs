@@ -469,15 +469,6 @@ pub mod tests {
     }
 
     #[test]
-    fn test_compact_fmt_partial_hand() {
-        assert_eq!(PartialHand(Vec::new()).compact_fmt(), "");
-        assert_eq!(
-            PartialHand(vec![((1, 2), 1), ((1, 2), 2)]).compact_fmt(),
-            "1,2,1,1,2,2"
-        );
-    }
-
-    #[test]
     fn test_new_state_from_rules() {
         assert_eq!(
             State::new_from_rules(&very_simple_rules()),

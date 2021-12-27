@@ -49,7 +49,6 @@ impl PartialHand {
             .unwrap_or_else(|| String::from(""))
     }
 
-    // TODO tests
     /// Decide whether this is a full hand according to rules `dice`
     pub fn is_full_hand(&self, dice: &Dice) -> bool {
         self.0.len() == dice.0.iter().map(|(_, freq)| freq).sum::<Frequency>() as usize
@@ -84,3 +83,24 @@ pub const US_LENGTH: usize = 6;
 /// Field count in lower section (regular only)
 #[cfg(test)]
 pub const LS_LENGTH: usize = 7;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_compact_fmt_partial_hand() {
+        assert_eq!(PartialHand(Vec::new()).compact_fmt(), "");
+        assert_eq!(
+            PartialHand(vec![(D6, 1), (D10, 2)]).compact_fmt(),
+            "1,6,1,0,9,2"
+        );
+    }
+
+    #[test]
+    fn test_is_full_hand() {
+        let hand = PartialHand(vec![(D6, 1)]);
+        assert!(hand.is_full_hand(&Dice(vec![(D6, 1)])));
+        assert!(!hand.is_full_hand(&Dice(vec![(D6, 2)])));
+    }
+}
