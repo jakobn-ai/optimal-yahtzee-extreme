@@ -37,13 +37,12 @@ impl ViewModel {
         // This check is also done in `strategy::probability_to_roll`, but it panics instead of
         // returning a Result to make caching and propagation easier
         let dice_rules = &self.rules.dice.dice;
-        // TODO this does not check _which_ type of dice they are
         if !hand.is_full_hand(dice_rules) {
             return Err(anyhow!("Hand does not match selected rules"));
         }
 
         let reroll_recomm = strategy::choose_reroll(&self.state, &hand, self.rerolls, &self.rules);
-        if reroll_recomm.hand.is_full_hand(dice_rules) {
+        if reroll_recomm.hand.has_full_hand_length(dice_rules) {
             let field_recomm = strategy::choose_field(&self.state, &hand, &self.rules);
             self.state = field_recomm.state;
             self.rerolls = REROLLS;
@@ -76,9 +75,6 @@ mod tests {
 
         // This hand does not win points
         let hand = PartialHand(vec![((1, 2), 1)]);
-
-        // TODO test ordering
-        // TODO test bad hand
 
         let mut expected_view_model_after_reroll = view_model.clone();
         let mut recommendation = view_model.recommend(hand.clone());

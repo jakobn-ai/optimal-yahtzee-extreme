@@ -245,7 +245,7 @@ pub fn choose_reroll(
         .into_par_iter()
         .map(|partial_hand| HandChance {
             hand: partial_hand.clone(),
-            expectation: if partial_hand.is_full_hand(&dice_rules.dice) {
+            expectation: if partial_hand.has_full_hand_length(&dice_rules.dice) {
                 // recommendation to stop, no need to recalculate
                 choose_field(state, hand, rules).expectation
             } else {

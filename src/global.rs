@@ -51,6 +51,17 @@ impl PartialHand {
 
     /// Decide whether this is a full hand according to rules `dice`
     pub fn is_full_hand(&self, dice: &Dice) -> bool {
+        dice.0.iter().all(|&(rules_die, freq)| {
+            self.0
+                .iter()
+                .filter(|(hand_die, _)| hand_die == &rules_die)
+                .count() as Frequency
+                == freq
+        })
+    }
+
+    /// Decide whether this has the length of a full hand according to rules `dice`
+    pub fn has_full_hand_length(&self, dice: &Dice) -> bool {
         self.0.len() == dice.0.iter().map(|(_, freq)| freq).sum::<Frequency>() as usize
     }
 }
@@ -99,8 +110,15 @@ mod tests {
 
     #[test]
     fn test_is_full_hand() {
-        let hand = PartialHand(vec![(D6, 1)]);
-        assert!(hand.is_full_hand(&Dice(vec![(D6, 1)])));
+        let hand = PartialHand(vec![(D6, 1), (D10, 2)]);
+        assert!(hand.is_full_hand(&Dice(vec![(D6, 1), (D10, 1)])));
         assert!(!hand.is_full_hand(&Dice(vec![(D6, 2)])));
+    }
+
+    #[test]
+    fn test_has_full_hand_length() {
+        let hand = PartialHand(vec![(D6, 1)]);
+        assert!(hand.has_full_hand_length(&Dice(vec![(D6, 1)])));
+        assert!(!hand.has_full_hand_length(&Dice(vec![(D6, 2)])));
     }
 }
