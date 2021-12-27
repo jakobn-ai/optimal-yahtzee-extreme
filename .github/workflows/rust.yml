@@ -1,11 +1,5 @@
 name: Test & Check
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-env:
-  CARGO_TERM_COLOR: always
+on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
