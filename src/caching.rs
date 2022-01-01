@@ -219,9 +219,9 @@ mod tests {
             version: version.to_string(),
             caches: persistent_caches::Caches {
                 // simple nonsense results -- have nothing, get nothing
-                probability_to_roll: [(roll_key, roll_test)].iter().cloned().collect(),
-                choose_reroll: [(reroll_key, reroll_recomm_test)].iter().cloned().collect(),
-                choose_field: [(field_key, field_recomm_test)].iter().cloned().collect(),
+                probability_to_roll: HashMap::from([(roll_key, roll_test)]),
+                choose_reroll: HashMap::from([(reroll_key, reroll_recomm_test)]),
+                choose_field: HashMap::from([(field_key, field_recomm_test)]),
             },
         };
 

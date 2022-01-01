@@ -508,7 +508,7 @@ pub mod tests {
                 }
             ),
             ProbabilitiesToRoll {
-                table: [
+                table: HashMap::from([
                     (
                         PartialHand(vec![((1, 2), 1), ((1, 2), 1), ((1, 2), 1), ((1, 2), 1)]),
                         Probability(0.125),
@@ -525,10 +525,7 @@ pub mod tests {
                         PartialHand(vec![((1, 2), 1), ((1, 2), 2), ((1, 2), 2), ((1, 2), 2)]),
                         Probability(0.125),
                     ),
-                ]
-                .iter()
-                .cloned()
-                .collect()
+                ])
             }
         );
     }
