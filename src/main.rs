@@ -8,36 +8,48 @@ mod view_model;
 mod yahtzee_bonus_rules;
 
 use anyhow::{anyhow, ensure, Result};
+use clap::{IntoApp, Parser};
 
-#[macro_use]
-extern crate clap;
-use clap::App;
+#[derive(Parser)]
+#[clap(about, version)]
+struct Args {
+    /// Use cache from <FILE>
+    #[clap(long, value_name = "FILE")]
+    cache: Option<String>,
+    /// Pre-cache and write to <FILE>
+    #[clap(long, value_name = "FILE")]
+    cache_write: Option<String>,
+    /// Game to play. Allowed options:{n}
+    /// extreme  - Yahtzee Extreme{n}
+    /// forced   - Forced choice joker, used in regular Yahtzee{n}
+    /// free     - Free choice joker, a popular alternative{n}
+    /// original - Original 1956 rules{n}
+    /// kniffel  - Kniffel rules, as published in German-speaking countries{n}
+    /// none     - No Yahtzee bonus
+    game: Option<String>,
+}
 
 fn main() -> Result<()> {
-    let cli_yaml = load_yaml!("cli.yml");
-    let matches = App::from_yaml(cli_yaml)
-        .version(crate_version!())
-        .get_matches();
-    let cache = matches.value_of("cache");
+    let args = Args::parse();
+    let mut app = Args::into_app();
 
-    if let Some(filename) = matches.value_of("cache-write") {
-        ensure!(cache.is_none(), "Caches cannot be used in pre-caching");
-        caching::pre_cache(filename)?;
+    if let Some(filename) = args.cache_write {
+        ensure!(args.cache.is_none(), "Caches cannot be used in pre-caching");
+        caching::pre_cache(&filename)?;
         return Ok(());
     }
 
-    if let Some(filename) = cache {
-        caching::restore_caches(filename)?;
+    if let Some(filename) = args.cache {
+        caching::restore_caches(&filename)?;
     }
 
-    let game = matches.value_of("game");
-    if game.is_none() {
-        println!("{}", matches.usage());
+    if args.game.is_none() {
+        println!("{}", app.render_usage());
         return Err(anyhow!("Must specify game to play unless pre-caching"));
     }
-    let rules_result = build_rules(game.unwrap());
+    let rules_result = build_rules(&args.game.unwrap());
     if let Err(e) = rules_result {
-        println!("{}", matches.usage());
+        println!("{}", app.render_usage());
         return Err(e);
     }
     let rules = rules_result.unwrap();

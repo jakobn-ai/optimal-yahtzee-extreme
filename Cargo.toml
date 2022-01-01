@@ -10,7 +10,7 @@ license = "GPL-3.0-or-later"
 [dependencies]
 anyhow = "1.0"
 cached = "0.26"
-clap = { version = "2.33", features = ["yaml"] }
+clap = { version = "3.0", features = ["cargo", "derive"] }
 flate2 = "1.0"
 float-cmp = "0.9"
 linefeed = "0.6"

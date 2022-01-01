@@ -8,6 +8,7 @@ use std::io::{BufReader, Read, Write};
 use std::iter::repeat;
 
 use anyhow::{ensure, Result};
+use clap::crate_version;
 use flate2::{bufread::DeflateDecoder, write::DeflateEncoder, Compression};
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
