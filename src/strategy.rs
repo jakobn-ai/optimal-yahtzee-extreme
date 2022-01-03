@@ -286,24 +286,20 @@ pub fn choose_field(state: &State, have: &PartialHand, rules: &rules::Rules) -> 
     let fields_rules = &rules.fields;
 
     let hand: Hand = have.0.iter().map(|&(_, pip)| pip).collect();
-    let mut available_fields: Vec<_> = state
-        .used
-        .iter()
-        .enumerate()
+    let enumerated = state.used.iter().enumerate();
+    let mut available_fields: Vec<_> = enumerated
         .flat_map(|(section_idx, section)| {
             let new_state = state.clone();
-            section
-                .iter()
-                .enumerate()
-                .filter_map(move |(field_idx, field)| {
-                    // Consider only if field is unused
-                    (!field).then(|| FieldRecomm {
-                        section: section_idx,
-                        field: field_idx,
-                        expectation: 0.0,
-                        state: new_state.clone(),
-                    })
+            let enumerated = section.iter().enumerate();
+            enumerated.filter_map(move |(field_idx, field)| {
+                // Consider only if field is unused
+                (!field).then(|| FieldRecomm {
+                    section: section_idx,
+                    field: field_idx,
+                    expectation: 0.0,
+                    state: new_state.clone(),
                 })
+            })
         })
         .collect();
     let yahtzee_bonus = state.scored_yahtzee

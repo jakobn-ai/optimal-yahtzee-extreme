@@ -52,11 +52,8 @@ impl PartialHand {
     /// Decide whether this is a full hand according to rules `dice`
     pub fn is_full_hand(&self, dice: &Dice) -> bool {
         dice.0.iter().all(|&(rules_die, freq)| {
-            self.0
-                .iter()
-                .filter(|(hand_die, _)| hand_die == &rules_die)
-                .count() as Frequency
-                == freq
+            let dice = self.0.iter().filter(|(hand_die, _)| hand_die == &rules_die);
+            dice.count() as Frequency == freq
         })
     }
 

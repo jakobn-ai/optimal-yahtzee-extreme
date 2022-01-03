@@ -5,11 +5,8 @@ use crate::global::*;
 /// * `field` - required field, e.g. `3` for Count Threes
 /// * `hand` - sorted
 pub fn generic_upper_section(field: Pip, hand: &HandSlice) -> Score {
-    hand.iter()
-        .skip_while(|&&pip| pip != field)
-        .take_while(|&&pip| pip == field)
-        .count() as Score
-        * field as Score
+    let others_away = hand.iter().skip_while(|&&pip| pip != field);
+    others_away.take_while(|&&pip| pip == field).count() as Score * field as Score
 }
 
 /// Calculate sum of hand

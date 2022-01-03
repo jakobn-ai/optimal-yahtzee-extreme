@@ -65,9 +65,8 @@ fn build_rules(game: &str) -> Result<rules::Rules> {
     if game == "extreme" {
         return Ok(rules::build_rules(true, yahtzee_bonus_rules::NONE));
     }
-    yahtzee_bonus_rules::ALL_VARIANTS_NAMES
-        .iter()
-        .enumerate()
+    let mut enumerated = yahtzee_bonus_rules::ALL_VARIANTS_NAMES.iter().enumerate();
+    enumerated
         .find(|(_, &name)| name == game)
         .map(|(i, _)| rules::build_rules(false, yahtzee_bonus_rules::ALL_VARIANTS[i].clone()))
         .ok_or_else(|| anyhow!("Unknown game: {}", game))
